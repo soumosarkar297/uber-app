@@ -18,6 +18,15 @@ import com.rideshare.locationservice.dto.NearByDriverResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Service for managing driver locations using Redis GeoSpatial indexing.
+ * Provides operations to add, query, and remove driver locations. Uses Spring
+ * Data Redis GEO commands for efficient spatial queries.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -29,10 +38,13 @@ public class LocationService {
     private static final String DRIVERS_GEO_KEY = "drivers:locations";
 
     /**
-     * Update driver location in Redis. Called every 3 seconds by driver's app.
-     * Maps to Redis GEOADD command.
+     * Updates the location of a driver in Redis. Called by the driver's app
+     * approximately every 3 seconds. Maps to Redis GEOADD command.
      *
-     * @param driverLocationRequest
+     * @param driverLocationRequest the request containing driver ID and
+     * coordinates
+     * @throws IllegalArgumentException if driverId is null/empty or coordinates
+     * are invalid
      */
     public void updateDriverLocation(DriverLocationRequest driverLocationRequest) {
         log.info("Updating location for driver: {}", driverLocationRequest.getDriverId());
@@ -51,22 +63,25 @@ public class LocationService {
     }
 
     /**
-     * Find nearby drivers within given radius. Called by Matching Service on
-     * ride request. Maps to Redis GEORADIUS command.
+     * Finds nearby drivers within a given radius. Called by the Matching
+     * Service when a ride is requested. Maps to Redis GEORADIUS command.
      *
-     * @param latitude
-     * @param longitute
-     * @param radiusInKm
-     * @return List <NearByDriverResponse>
+     * @param latitude the latitude of the search center
+     * @param longitude the longitude of the search center
+     * @param radiusInKm the search radius in kilometers
+     * @return list of nearby drivers with their locations and distances, sorted
+     * by distance ascending (max 10)
+     * @throws IllegalArgumentException if coordinates are invalid or radius is
+     * negative
      */
     public List<NearByDriverResponse> findNearByDrivers(
-            double latitude, double longitute, double radiusInKm
+            double latitude, double longitude, double radiusInKm
     ) {
         log.info("Finding drivers near lat: {} long: {} within {}Km",
-                latitude, longitute, radiusInKm);
+                latitude, longitude, radiusInKm);
 
         Circle searchArea = new Circle(
-                new Point(longitute, latitude),
+                new Point(longitude, latitude),
                 new Distance(radiusInKm, Metrics.KILOMETERS));
 
         GeoResults<RedisGeoCommands.GeoLocation<String>> results = redisTemplate
@@ -99,9 +114,11 @@ public class LocationService {
     }
 
     /**
-     * Remove driver when they go offline. Maps to Redis ZREM command.
+     * Removes a driver from the location tracking system. Called when a driver
+     * goes offline. Maps to Redis ZREM command.
      *
-     * @param driverId
+     * @param driverId the unique identifier of the driver to remove
+     * @throws IllegalArgumentException if driverId is null or empty
      */
     public void removeDriver(String driverId) {
         log.info("Removing driver: {}", driverId);

@@ -19,6 +19,15 @@ import com.rideshare.locationservice.service.LocationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * REST controller for driver location management.
+ * Provides endpoints for updating driver locations, finding nearby drivers,
+ * and removing drivers when they go offline.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @RestController
 @RequestMapping("/locations")
 @Slf4j
@@ -28,12 +37,12 @@ public class LocationController {
     private final LocationService locationService;
 
     /**
-     * Driver's app calls this every 3 second
+     * Updates the location of a driver.
+     * Called by the driver's app approximately every 3 seconds.
      *
-     * @param latitude
-     * @param longitude
-     * @param radius
-     * @return ResponseEntity<String>
+     * @param driverLocationRequest the request containing driver ID, latitude, and longitude
+     * @return ResponseEntity with success message
+     * @throws IllegalArgumentException if the request is invalid
      */
     @PostMapping("/drivers/update")
     public ResponseEntity<String> updateDriverLocation(
@@ -44,12 +53,14 @@ public class LocationController {
     }
 
     /**
-     * Matching service calls this when a ride is request
+     * Finds nearby drivers within a specified radius.
+     * Called by the Matching Service when a ride is requested.
      *
-     * @param latitude
-     * @param longitude
-     * @param radius
-     * @return ResponseEntity<NearByDriverResponse>
+     * @param latitude  the latitude of the search center
+     * @param longitude the longitude of the search center
+     * @param radius    the search radius in kilometers (default: 5.0)
+     * @return list of nearby drivers with their locations and distances, sorted by distance ascending
+     * @throws IllegalArgumentException if coordinates are invalid
      */
     @GetMapping("/drivers/nearby")
     public ResponseEntity<List<NearByDriverResponse>> getNearByDrivers(
@@ -61,10 +72,12 @@ public class LocationController {
     }
 
     /**
-     * Called when a driver goes offline
+     * Removes a driver from the location tracking system.
+     * Called when a driver goes offline.
      *
-     * @param driverId
-     * @return ResponseEntity<String>
+     * @param driverId the unique identifier of the driver to remove
+     * @return ResponseEntity with success message
+     * @throws IllegalArgumentException if driverId is null or empty
      */
     @DeleteMapping("/drivers/{driverId}")
     public ResponseEntity<String> removeDriver(@PathVariable String driverId) {
