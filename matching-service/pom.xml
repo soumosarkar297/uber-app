@@ -51,6 +51,12 @@
 			<artifactId>spring-boot-starter-json</artifactId>
 		</dependency>
 
+		<!-- Jackson 2.x for Kafka JsonDeserializer compatibility -->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
+
 		<!-- Spring Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
