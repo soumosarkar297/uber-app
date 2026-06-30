@@ -45,12 +45,6 @@
 			<artifactId>spring-boot-starter-kafka</artifactId>
 		</dependency>
 
-		<!-- Jackson for JSON serialization/deserialization -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-json</artifactId>
-		</dependency>
-
 		<!-- Jackson 2.x for Kafka JsonDeserializer compatibility -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
