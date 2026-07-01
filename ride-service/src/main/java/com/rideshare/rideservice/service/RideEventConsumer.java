@@ -3,14 +3,15 @@ package com.rideshare.rideservice.service;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import com.rideshare.rideservice.dto.RideCancelRequest;
 import com.rideshare.rideservice.event.RideMatchedEvent;
+import com.rideshare.rideservice.model.RideCancellationReason;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Kafka consumer that listens for {@code ride.matched} events and delegates
- * to the {@link RideService} for driver assignment updates.
+ * Consumes ride-related Kafka events and triggers corresponding state transitions.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -26,17 +27,7 @@ public class RideEventConsumer {
     private static final int MAX_RETRIES = 3;
     private static final long RETRY_DELAY_MS = 500;
 
-    /**
-     * Listens to the {@code ride.matched} Kafka topic.
-     * Triggered every time the Matching Service publishes a matched driver event.
-     * <p>
-     * Flow: Matching Service → Kafka (ride.matched) → This Consumer → RideService
-     * <p>
-     * Retries up to {@value MAX_RETRIES} times with increasing backoff when the ride
-     * is not yet persisted (transient race condition between services).
-     *
-     * @param event the ride matched event containing ride and driver identifiers
-     */
+    /** Consumes ride.matched events and accepts the ride with retry logic. */
     @KafkaListener(
             topics = "ride.matched",
             groupId = "ride-service-group"
@@ -44,7 +35,7 @@ public class RideEventConsumer {
     public void consumeRideMatchedEvent(RideMatchedEvent event) {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                rideService.updateRideWithDriver(event.getRideId(), event.getDriverId());
+                rideService.acceptRide(event.getRideId(), event.getDriverId());
                 return;
             } catch (RuntimeException e) {
                 if (attempt < MAX_RETRIES && e.getMessage().contains("Ride not found")) {
@@ -57,11 +48,30 @@ public class RideEventConsumer {
                         throw e;
                     }
                 } else {
-                    log.error("Error processing ride matching: {} - {}", event.getRideId(), e.getMessage());
+                    log.error("Error processing ride matching: {} - {}", event.getRideId(),
+                            e.getMessage());
                     return;
                 }
             }
         }
     }
 
+    /** Consumes ride.declined events and cancels the ride accordingly. */
+    @KafkaListener(
+            topics = "ride.declined",
+            groupId = "ride-service-group"
+    )
+    public void consumeRideDeclinedEvent(java.util.Map<String, String> event) {
+        String rideId = event.get("rideId");
+        String reason = event.getOrDefault("reason", "DRIVER_UNAVAILABLE");
+
+        log.info("Ride {} declined by driver. Reason: {}", rideId, reason);
+
+        try {
+            rideService.cancelRide(rideId, new RideCancelRequest(
+                    RideCancellationReason.valueOf(reason), "driver"));
+        } catch (Exception e) {
+            log.error("Error processing ride decline: {} - {}", rideId, e.getMessage());
+        }
+    }
 }

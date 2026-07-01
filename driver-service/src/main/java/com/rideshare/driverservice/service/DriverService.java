@@ -28,8 +28,8 @@ import com.rideshare.driverservice.repository.DriverRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Service for driver-specific operations.
- * Handles driver registration with vehicle info, profile management, and document handling.
+ * Service for driver-specific operations. Handles driver registration with
+ * vehicle info, profile management, and document handling.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -47,8 +47,7 @@ public class DriverService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     /**
-     * Register a new driver.
-     * Creates Driver entity and initial documents.
+     * Register a new driver. Creates Driver entity and initial documents.
      */
     @Transactional
     public RegistrationResponse registerDriver(DriverRegistrationRequest request) {
@@ -330,7 +329,8 @@ public class DriverService {
     }
 
     /**
-     * Get available drivers near a location (simplified - returns all available drivers).
+     * Get available drivers near a location (simplified - returns all available
+     * drivers).
      */
     public List<Driver> getAvailableDrivers() {
         return driverRepository.findAvailableDrivers();

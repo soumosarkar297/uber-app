@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.rideshare.matchingservice.client.LocationServiceClient;
 import com.rideshare.matchingservice.dto.NearByDriverResponse;
+import com.rideshare.matchingservice.dto.SurgeArea;
 import com.rideshare.matchingservice.event.RideMatchedEvent;
 import com.rideshare.matchingservice.event.RideRequestedEvent;
 
@@ -16,9 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Core service responsible for matching riders with nearby drivers.
- * Coordinates with the Location Service to find available drivers and publishes
- * matched events to Kafka for downstream processing.
+ * Matches riders with the best available driver using multi-factor scoring.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -31,31 +30,52 @@ public class MatchingService {
 
     private final LocationServiceClient locationServiceClient;
     private final KafkaTemplate<String, RideMatchedEvent> kafkaTemplate;
+    private final SurgeDetectionService surgeDetectionService;
 
     private static final String RIDE_MATCHED_TOPIC = "ride.matched";
-    private static final double DEFAULT_SEARCH_RADIUS_IN_KM = 5.0;
+    private static final double DEFAULT_SEARCH_RADIUS_KM = 5.0;
+    private static final double MAX_SEARCH_RADIUS_KM = 15.0;
+    private static final double SEARCH_RADIUS_INCREMENT_KM = 2.5;
+
+    // Scoring weights
+    private static final double DISTANCE_WEIGHT = 0.40;
+    private static final double RATING_WEIGHT = 0.25;
+    private static final double ACCEPTANCE_RATE_WEIGHT = 0.20;
+    private static final double TRIP_COUNT_WEIGHT = 0.15;
 
     /**
-     * Main matching algorithm invoked when a {@link RideRequestedEvent} is consumed from Kafka.
-     * Queries the Location Service for nearby drivers, scores them, and publishes a
-     * {@link RideMatchedEvent} with the best match.
-     *
-     * @param event the ride request event containing pickup location and rider details
-     * @throws RuntimeException if the Location Service is unavailable or Kafka send fails
+     * Main matching algorithm. Expands search radius if no drivers found.
+     * Uses multi-factor scoring to select the best driver.
      */
     public void matchDriverForRide(RideRequestedEvent event) {
+        double searchRadius = DEFAULT_SEARCH_RADIUS_KM;
+        List<NearByDriverResponse> nearByDrivers = List.of();
 
-        // STEP 1: Ask Location Service for nearby drivers
-        List<NearByDriverResponse> nearByDrivers = locationServiceClient.getNearByDrivers(
-                event.getPickupLatitude(), event.getPickupLongitude(), DEFAULT_SEARCH_RADIUS_IN_KM);
+        // Expanding radius search
+        while (searchRadius <= MAX_SEARCH_RADIUS_KM && nearByDrivers.isEmpty()) {
+            nearByDrivers = locationServiceClient.getNearByDrivers(
+                    event.getPickupLatitude(),
+                    event.getPickupLongitude(),
+                    searchRadius);
+
+            if (nearByDrivers.isEmpty()) {
+                searchRadius += SEARCH_RADIUS_INCREMENT_KM;
+                log.info("No drivers within {}km, expanding search...", searchRadius);
+            }
+        }
 
         if (nearByDrivers.isEmpty()) {
-            log.warn("No drivers found near ride: {}", event.getRideId());
+            log.warn("No drivers found for ride {} after expanding to {}km",
+                    event.getRideId(), searchRadius);
             return;
         }
 
-        // STEP 2: Score each driver and pick the best one
-        Optional<NearByDriverResponse> bestDriver = findBestDriver(nearByDrivers);
+        // Filter: exclude drivers in surge zones that are too expensive
+        List<SurgeArea> surgeAreas = surgeDetectionService.detectSurgeAreas(
+                event.getPickupLatitude(), event.getPickupLongitude());
+
+        // Score and select best driver
+        Optional<NearByDriverResponse> bestDriver = findBestDriver(nearByDrivers, surgeAreas);
 
         if (bestDriver.isEmpty()) {
             log.warn("Could not find suitable driver for ride: {}", event.getRideId());
@@ -64,7 +84,6 @@ public class MatchingService {
 
         NearByDriverResponse assignedDriver = bestDriver.get();
 
-        // STEP 3: Publish RideMatchedEvent to Kafka
         RideMatchedEvent matchedEvent = new RideMatchedEvent(
                 event.getRideId(),
                 event.getRiderId(),
@@ -74,41 +93,63 @@ public class MatchingService {
                 assignedDriver.getDistanceInKm());
 
         kafkaTemplate.send(RIDE_MATCHED_TOPIC, event.getRideId(), matchedEvent);
-        log.info("RideMatchedEvent published for ride: {}", event.getRideId());
+        log.info("RideMatchedEvent published for ride: {} to driver: {}",
+                event.getRideId(), assignedDriver.getDriverId());
     }
 
     /**
-     * Driver scoring algorithm that selects the best driver based on distance and rating.
-     * <p>
-     * Scoring formula: {@code Score = (1 / distance) * distanceWeight + rating * ratingWeight}
-     * <ul>
-     *   <li>Distance weight: 70% (closer drivers score higher)</li>
-     *   <li>Rating weight: 30% (higher rated drivers score higher)</li>
-     * </ul>
-     * In production, the rating should be fetched from the Driver Service.
-     *
-     * @param drivers list of nearby drivers to score
-     * @return an {@link Optional} containing the best driver, or empty if no drivers provided
+     * Multi-factor driver scoring algorithm.
+     * Score = distanceScore * 0.40 + ratingScore * 0.25 + acceptanceRate * 0.20 + tripCountScore * 0.15
      */
     private Optional<NearByDriverResponse> findBestDriver(
-            List<NearByDriverResponse> drivers
-    ) {
-        double distanceWeight = 0.7;
-        double ratingWeight = 0.3;
+            List<NearByDriverResponse> drivers,
+            List<SurgeArea> surgeAreas) {
 
         return drivers.stream()
-                .max(Comparator.comparingDouble(driver -> {
-                    // Distance score: closer = higher score
-                    // Add 0.1 to avoid division by zero
+                .max(Comparator.comparingDouble(driver -> calculateDriverScore(driver, surgeAreas)));
+    }
 
-                    double distanceScore = 1.0 / (driver.getDistanceInKm() + 0.1);
+    private double calculateDriverScore(NearByDriverResponse driver, List<SurgeArea> surgeAreas) {
+        // Distance score: closer = higher score (normalized 0-1)
+        double distanceScore = 1.0 / (driver.getDistanceInKm() + 0.1);
 
-                    // Simulated rating between 4.0 and 5.0
-                    // In production: fetch from Driver Service
-                    double simulatedRating = 4.0 + Math.random();
+        // Rating score: normalized 0-1 (assuming 4.0-5.0 range)
+        double simulatedRating = 4.0 + Math.random();
+        double ratingScore = (simulatedRating - 3.0) / 2.0;
 
-                    // Final weighted score
-                    return (distanceScore * distanceWeight) + (simulatedRating * ratingWeight);
-                }));
+        // Acceptance rate: simulated 0.7-1.0
+        double acceptanceRate = 0.7 + (Math.random() * 0.3);
+
+        // Trip count: simulated normalized score
+        double tripCountScore = Math.random();
+
+        // Surge area penalty: reduce score if driver is in a surge area
+        double surgePenalty = 1.0;
+        for (SurgeArea area : surgeAreas) {
+            double distToSurgeCenter = haversine(
+                    driver.getLatitude(), driver.getLongitude(),
+                    area.getCenterLatitude(), area.getCenterLongitude());
+            if (distToSurgeCenter <= area.getRadiusKm()) {
+                // Higher surge = higher penalty
+                surgePenalty = Math.max(0.5, 1.0 - (area.getSurgeMultiplier() - 1.0) * 0.3);
+                break;
+            }
+        }
+
+        return (distanceScore * DISTANCE_WEIGHT
+                + ratingScore * RATING_WEIGHT
+                + acceptanceRate * ACCEPTANCE_RATE_WEIGHT
+                + tripCountScore * TRIP_COUNT_WEIGHT)
+                * surgePenalty;
+    }
+
+    private double haversine(double lat1, double lon1, double lat2, double lon2) {
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return 6371 * c;
     }
 }

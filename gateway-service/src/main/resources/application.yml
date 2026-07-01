@@ -30,6 +30,18 @@ springdoc:
         url: /ride/api-docs
       - name: driver-service
         url: /driver/api-docs
+      - name: pricing-service
+        url: /pricing/api-docs
+      - name: payment-service
+        url: /payment/api-docs
+      - name: notification-service
+        url: /notification/api-docs
+      - name: rating-service
+        url: /rating/api-docs
+      - name: trip-service
+        url: /trip/api-docs
+      - name: driver-onboarding-service
+        url: /onboarding/api-docs
 
 management:
   endpoints:

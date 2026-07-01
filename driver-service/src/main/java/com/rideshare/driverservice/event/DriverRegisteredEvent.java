@@ -10,6 +10,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * Event published when a new driver is registered with vehicle information.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Data
 @Builder

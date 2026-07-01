@@ -16,6 +16,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
+    /**
+     * Creates the OpenAPI configuration for the Location Service documentation.
+     */
     @Bean
     public OpenAPI locationServiceOpenAPI() {
         return new OpenAPI()

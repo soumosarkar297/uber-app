@@ -18,9 +18,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * JPA entity representing a ride in the system.
- * Maps to the 'rides' table in the database.
- * Tracks the complete lifecycle of a ride from request to completion.
+ * JPA entity representing a ride throughout its lifecycle.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -33,64 +31,67 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Ride {
 
-    /** Unique identifier of the ride (UUID) */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    /** Unique identifier of the rider who requested the ride */
     @Column(nullable = false)
     private String riderId;
 
-    /** Unique identifier of the driver who accepted the ride (null until matched) */
     private String driverId;
 
-    /** Latitude coordinate of the pickup location */
     @Column(nullable = false)
     private double pickupLatitude;
 
-    /** Longitude coordinate of the pickup location */
     @Column(nullable = false)
     private double pickupLongitude;
 
-    /** Human-readable address of the pickup location */
     @Column(nullable = false)
     private String pickupAddress;
 
-    /** Latitude coordinate of the drop-off location */
     @Column(nullable = false)
     private double dropLatitude;
 
-    /** Longitude coordinate of the drop-off location */
     @Column(nullable = false)
     private double dropLongitude;
 
-    /** Human-readable address of the drop-off location */
     @Column(nullable = false)
     private String dropAddress;
 
-    /** Current status of the ride lifecycle */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RideStatus status;
 
-    /** Estimated fare calculated at ride creation */
+    @Enumerated(EnumType.STRING)
+    private RideCancellationReason cancellationReason;
+
+    private String cancelledBy;
+
     private double estimatedFare;
 
-    /** Actual fare charged upon completion */
     private double actualFare;
 
-    /** Timestamp when the ride was created (auto-set) */
+    private Double distanceKm;
+
+    private Double durationMinutes;
+
+    private String vehicleType;
+
+    private Double surgeMultiplier;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    /** Timestamp when the ride was last updated (auto-updated) */
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    /** Timestamp when the ride started (driver began trip) */
     private LocalDateTime startedAt;
 
-    /** Timestamp when the ride was completed */
     private LocalDateTime completedAt;
+
+    private LocalDateTime cancelledAt;
+
+    private LocalDateTime acceptedAt;
+
+    private LocalDateTime driverArrivedAt;
 }

@@ -5,10 +5,10 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.rideshare.rideservice.model.Ride;
+import com.rideshare.rideservice.model.RideStatus;
 
 /**
- * Spring Data JPA repository for Ride entity.
- * Provides standard CRUD operations and custom query methods.
+ * Spring Data JPA repository for persisting and querying rides.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -16,12 +16,7 @@ import com.rideshare.rideservice.model.Ride;
  */
 public interface RideRepository extends JpaRepository<Ride, String> {
 
-    /**
-     * Finds all rides for a specific rider, ordered by creation date descending.
-     *
-     * @param riderId the unique identifier of the rider
-     * @return list of rides ordered by createdAt descending (most recent first)
-     */
     List<Ride> findByRiderIdOrderByCreatedAtDesc(String riderId);
 
+    List<Ride> findByDriverIdAndStatusIn(String driverId, List<RideStatus> statuses);
 }

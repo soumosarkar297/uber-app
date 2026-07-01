@@ -19,6 +19,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Filter that extracts the authenticated driver from the JWT and populates the DriverContext.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtDriverFilter extends OncePerRequestFilter {

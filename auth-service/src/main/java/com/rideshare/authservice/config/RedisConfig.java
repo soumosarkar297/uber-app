@@ -9,8 +9,18 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Configuration for Redis connectivity and serialization.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Configuration
 public class RedisConfig {
+    /**
+     * Creates and configures a RedisTemplate with JSON serialization.
+     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();

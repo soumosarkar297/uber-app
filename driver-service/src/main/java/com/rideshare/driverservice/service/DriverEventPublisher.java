@@ -13,8 +13,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service for publishing driver-related events to Kafka topics.
- * Uses JSON serialization for event payloads.
+ * Service for publishing driver-related events to Kafka topics. Uses JSON
+ * serialization for event payloads.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Service
 @RequiredArgsConstructor
@@ -36,7 +40,11 @@ public class DriverEventPublisher {
     private String documentVerifiedTopic;
 
     /**
-     * Publish driver registered event.
+     * Publishes a driver registration event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishDriverRegistered(DriverRegisteredEvent event) {
         try {
@@ -56,7 +64,11 @@ public class DriverEventPublisher {
     }
 
     /**
-     * Publish user registered event.
+     * Publishes a user registration event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishUserRegistered(UserRegisteredEvent event) {
         try {
@@ -76,7 +88,11 @@ public class DriverEventPublisher {
     }
 
     /**
-     * Publish document uploaded event.
+     * Publishes a document upload event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishDocumentUploaded(DocumentUploadedEvent event) {
         try {
@@ -96,7 +112,11 @@ public class DriverEventPublisher {
     }
 
     /**
-     * Publish document verified event.
+     * Publishes a document verification event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishDocumentVerified(DocumentVerifiedEvent event) {
         try {

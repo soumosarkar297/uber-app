@@ -15,6 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Service for publishing user-related events to Kafka topics.
  * Uses JSON serialization for event payloads.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Service
 @RequiredArgsConstructor
@@ -36,7 +40,11 @@ public class UserEventPublisher {
     private String documentVerifiedTopic;
 
     /**
-     * Publish user registered event.
+     * Publishes a user registration event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishUserRegistered(UserRegisteredEvent event) {
         try {
@@ -56,7 +64,11 @@ public class UserEventPublisher {
     }
 
     /**
-     * Publish user profile updated event.
+     * Publishes a user profile update event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishUserProfileUpdated(UserProfileUpdatedEvent event) {
         try {
@@ -76,7 +88,11 @@ public class UserEventPublisher {
     }
 
     /**
-     * Publish document uploaded event.
+     * Publishes a document upload event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishDocumentUploaded(DocumentUploadedEvent event) {
         try {
@@ -96,7 +112,11 @@ public class UserEventPublisher {
     }
 
     /**
-     * Publish document verified event.
+     * Publishes a document verification event to the configured Kafka topic.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     public void publishDocumentVerified(DocumentVerifiedEvent event) {
         try {

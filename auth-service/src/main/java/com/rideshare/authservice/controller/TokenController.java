@@ -21,6 +21,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Manages JWT token lifecycle including refresh, revocation, and JWKS distribution.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @RestController
 @RequestMapping("/api/auth/token")
 @RequiredArgsConstructor

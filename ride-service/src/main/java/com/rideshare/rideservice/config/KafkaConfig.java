@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 
 /**
- * Configuration class for Kafka producer and consumer setup.
+ * Configures Kafka topics used by the ride service for event-driven communication.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -15,15 +15,7 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 public class KafkaConfig {
 
-    /**
-     * Creates the Kafka topic for ride requests.
-     * <p>
-     * The Ride Service publishes ride request events to this topic. The
-     * Matching Service subscribes to consume these requests.
-     * </p>
-     *
-     * @return a {@link NewTopic} configured with 3 partitions and 1 replica
-     */
+    /** Creates the ride.requested topic. */
     @Bean
     public NewTopic rideRequestedTopic() {
         return TopicBuilder.name("ride.requested")
@@ -32,18 +24,46 @@ public class KafkaConfig {
                 .build();
     }
 
-    /**
-     * Creates the Kafka topic for ride match results.
-     * <p>
-     * The Matching Service publishes match result events to this topic. The
-     * Ride Service subscribes to consume these results.
-     * </p>
-     *
-     * @return a {@link NewTopic} configured with 3 partitions and 1 replica
-     */
+    /** Creates the ride.matched topic. */
     @Bean
     public NewTopic rideMatchedTopic() {
         return TopicBuilder.name("ride.matched")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the ride.accepted topic. */
+    @Bean
+    public NewTopic rideAcceptedTopic() {
+        return TopicBuilder.name("ride.accepted")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the ride.cancelled topic. */
+    @Bean
+    public NewTopic rideCancelledTopic() {
+        return TopicBuilder.name("ride.cancelled")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the ride.started topic. */
+    @Bean
+    public NewTopic rideStartedTopic() {
+        return TopicBuilder.name("ride.started")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the ride.completed topic. */
+    @Bean
+    public NewTopic rideCompletedTopic() {
+        return TopicBuilder.name("ride.completed")
                 .partitions(3)
                 .replicas(1)
                 .build();

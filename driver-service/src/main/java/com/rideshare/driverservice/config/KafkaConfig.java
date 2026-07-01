@@ -9,6 +9,10 @@ import org.springframework.kafka.config.TopicBuilder;
 /**
  * Kafka configuration for driver service event publishing.
  * Defines topics for driver registration, user registration, and document events.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Configuration
 public class KafkaConfig {
@@ -26,7 +30,11 @@ public class KafkaConfig {
     private String documentVerifiedTopic;
 
     /**
-     * Driver registered topic.
+     * Creates the Kafka topic for driver registration events.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     @Bean
     public NewTopic driverRegisteredTopic() {
@@ -37,7 +45,11 @@ public class KafkaConfig {
     }
 
     /**
-     * User registered topic.
+     * Creates the Kafka topic for user registration events.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     @Bean
     public NewTopic userRegisteredTopic() {
@@ -48,7 +60,11 @@ public class KafkaConfig {
     }
 
     /**
-     * Document uploaded topic.
+     * Creates the Kafka topic for document upload events.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     @Bean
     public NewTopic documentUploadedTopic() {
@@ -59,7 +75,11 @@ public class KafkaConfig {
     }
 
     /**
-     * Document verified topic.
+     * Creates the Kafka topic for document verification events.
+     *
+     * @author Soumo Sarkar
+     * @version 1.0.0
+     * @since 1.0.0
      */
     @Bean
     public NewTopic documentVerifiedTopic() {

@@ -1,27 +1,46 @@
 package com.rideshare.rideservice.model;
 
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Set;
+
 /**
- * Enumeration representing the possible states of a ride lifecycle.
- * Flow: REQUESTED -> MATCHING -> ACCEPTED -> DRIVER_ARRIVING -> RIDE_STARTED -> COMPLETED
- * CANCELLED can occur at multiple stages.
+ * Enumerates the possible statuses of a ride with enforced state transitions.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
  * @since 1.0.0
  */
 public enum RideStatus {
-    /** Ride has been requested by rider, awaiting matching */
     REQUESTED,
-    /** System is searching for a nearby driver */
     MATCHING,
-    /** Driver has accepted the ride request */
     ACCEPTED,
-    /** Driver is en route to pickup location */
     DRIVER_ARRIVING,
-    /** Ride has started, driver is transporting rider */
     RIDE_STARTED,
-    /** Ride has been completed successfully */
     COMPLETED,
-    /** Ride was cancelled before completion */
-    CANCELLED
+    CANCELLED;
+
+    private static final Map<RideStatus, Set<RideStatus>> TRANSITIONS = new EnumMap<>(RideStatus.class);
+
+    static {
+        TRANSITIONS.put(REQUESTED, Set.of(MATCHING, CANCELLED));
+        TRANSITIONS.put(MATCHING, Set.of(ACCEPTED, CANCELLED));
+        TRANSITIONS.put(ACCEPTED, Set.of(DRIVER_ARRIVING, CANCELLED));
+        TRANSITIONS.put(DRIVER_ARRIVING, Set.of(RIDE_STARTED, CANCELLED));
+        TRANSITIONS.put(RIDE_STARTED, Set.of(COMPLETED));
+        TRANSITIONS.put(COMPLETED, Set.of());
+        TRANSITIONS.put(CANCELLED, Set.of());
+    }
+
+    public boolean canTransitionTo(RideStatus newStatus) {
+        return TRANSITIONS.getOrDefault(this, Set.of()).contains(newStatus);
+    }
+
+    public RideStatus validateTransition(RideStatus newStatus) {
+        if (!canTransitionTo(newStatus)) {
+            throw new IllegalStateException(
+                    String.format("Invalid ride status transition: %s -> %s", this, newStatus));
+        }
+        return newStatus;
+    }
 }

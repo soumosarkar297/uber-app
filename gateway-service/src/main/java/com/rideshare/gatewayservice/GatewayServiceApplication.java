@@ -15,6 +15,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class GatewayServiceApplication {
 
+    /**
+     * Starts the Gateway Service application.
+     */
     public static void main(String[] args) {
         SpringApplication.run(GatewayServiceApplication.class, args);
     }

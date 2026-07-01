@@ -6,9 +6,14 @@ import java.util.List;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import com.rideshare.rideservice.dto.RideCancelRequest;
 import com.rideshare.rideservice.dto.RideRequest;
 import com.rideshare.rideservice.dto.RideResponse;
+import com.rideshare.rideservice.event.RideAcceptedEvent;
+import com.rideshare.rideservice.event.RideCancelledEvent;
+import com.rideshare.rideservice.event.RideCompletedEvent;
 import com.rideshare.rideservice.event.RideRequestedEvent;
+import com.rideshare.rideservice.event.RideStartedEvent;
 import com.rideshare.rideservice.model.Ride;
 import com.rideshare.rideservice.model.RideStatus;
 import com.rideshare.rideservice.repository.RideRepository;
@@ -17,9 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service layer for ride management operations.
- * Handles ride lifecycle: creation, matching, starting, completion, and cancellation.
- * Publishes ride events to Kafka for inter-service communication.
+ * Core service orchestrating ride lifecycle operations and Kafka event publishing.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -31,24 +34,21 @@ import lombok.extern.slf4j.Slf4j;
 public class RideService {
 
     private final RideRepository rideRepository;
-    private final KafkaTemplate<String, RideRequestedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private static final String RIDE_REQUESTED_TOPIC = "ride.requested";
+    private static final String RIDE_ACCEPTED_TOPIC = "ride.accepted";
+    private static final String RIDE_CANCELLED_TOPIC = "ride.cancelled";
+    private static final String RIDE_STARTED_TOPIC = "ride.started";
+    private static final String RIDE_COMPLETED_TOPIC = "ride.completed";
 
     /**
      * Creates a new ride request from a rider.
-     * Persists the ride with REQUESTED status, calculates estimated fare,
-     * publishes RideRequestedEvent to Kafka for driver matching,
-     * then updates status to MATCHING.
-     *
-     * @param request the ride request containing pickup and drop-off details
-     * @return RideResponse with created ride details
-     * @throws RuntimeException if ride creation or event publishing fails
+     * Transitions: -> REQUESTED -> MATCHING
      */
     public RideResponse requestRide(RideRequest request) {
         log.info("New ride request from rider: {}", request.getRiderId());
 
-        // Step 1: save ride to database
         Ride ride = new Ride();
         ride.setRiderId(request.getRiderId());
         ride.setPickupLatitude(request.getPickupLatitude());
@@ -57,13 +57,16 @@ public class RideService {
         ride.setDropLatitude(request.getDropLatitude());
         ride.setDropLongitude(request.getDropLongitude());
         ride.setDropAddress(request.getDropAddress());
+        ride.setVehicleType(request.getVehicleType());
         ride.setStatus(RideStatus.REQUESTED);
-        ride.setEstimatedFare(calculateEstimateFare(request));
 
         Ride savedRide = rideRepository.save(ride);
 
-        // Step 2: Publish event to Kafka
-        // Matching service will consume this and find nearest driver
+        // Transition to MATCHING
+        savedRide.setStatus(RideStatus.MATCHING);
+        rideRepository.save(savedRide);
+
+        // Publish event to Kafka
         RideRequestedEvent event = new RideRequestedEvent(
                 savedRide.getId(),
                 savedRide.getRiderId(),
@@ -75,134 +78,183 @@ public class RideService {
                 savedRide.getDropAddress());
 
         kafkaTemplate.send(RIDE_REQUESTED_TOPIC, savedRide.getId(), event);
-        log.info("RideRequestedEvent published to Kafka for ride: {}", savedRide.getId());
-
-        // Update status to Matching
-        savedRide.setStatus(RideStatus.MATCHING);
-        rideRepository.save(savedRide);
+        log.info("RideRequestedEvent published for ride: {}", savedRide.getId());
 
         return mapToResponse(savedRide);
     }
 
     /**
-     * Updates a ride with the assigned driver ID.
-     * Called by Matching Service when a driver accepts a ride.
-     * Transitions ride status from MATCHING to ACCEPTED.
-     *
-     * @param rideId the unique identifier of the ride
-     * @param driverId the unique identifier of the driver who accepted
-     * @throws RuntimeException if ride not found
+     * Accepts a ride request. Called by matching service when driver accepts.
+     * Transitions: MATCHING -> ACCEPTED
      */
-    public void updateRideWithDriver(String rideId, String driverId) {
+    public RideResponse acceptRide(String rideId, String driverId) {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
+        ride.getStatus().validateTransition(RideStatus.ACCEPTED);
+
         ride.setDriverId(driverId);
         ride.setStatus(RideStatus.ACCEPTED);
+        ride.setAcceptedAt(LocalDateTime.now());
         rideRepository.save(ride);
+
+        log.info("Ride {} accepted by driver {}", rideId, driverId);
+
+        // Publish accepted event
+        RideAcceptedEvent event = new RideAcceptedEvent(
+                rideId, ride.getRiderId(), driverId, 0, 0, 0);
+        kafkaTemplate.send(RIDE_ACCEPTED_TOPIC, rideId, event);
+
+        return mapToResponse(ride);
+    }
+
+    /**
+     * Marks driver as arriving at pickup.
+     * Transitions: ACCEPTED -> DRIVER_ARRIVING
+     */
+    public RideResponse driverArriving(String rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+
+        ride.getStatus().validateTransition(RideStatus.DRIVER_ARRIVING);
+        ride.setStatus(RideStatus.DRIVER_ARRIVING);
+        rideRepository.save(ride);
+
+        log.info("Ride {} - driver arriving at pickup", rideId);
+        return mapToResponse(ride);
     }
 
     /**
      * Starts a ride that has been accepted by a driver.
-     * Transitions ride status from ACCEPTED to RIDE_STARTED.
-     * Records the start timestamp.
-     *
-     * @param rideId the unique identifier of the ride to start
-     * @return RideResponse with updated ride details
-     * @throws RuntimeException if ride not found or invalid status (must be ACCEPTED)
+     * Transitions: DRIVER_ARRIVING -> RIDE_STARTED
      */
     public RideResponse startRide(String rideId) {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        if (ride.getStatus() != RideStatus.ACCEPTED) {
-            throw new RuntimeException("Ride cannot be started. Current status: " + ride.getStatus());
-        }
+        ride.getStatus().validateTransition(RideStatus.RIDE_STARTED);
 
         ride.setStatus(RideStatus.RIDE_STARTED);
         ride.setStartedAt(LocalDateTime.now());
         rideRepository.save(ride);
+
+        log.info("Ride {} started", rideId);
+
+        RideStartedEvent event = new RideStartedEvent(
+                rideId, ride.getRiderId(), ride.getDriverId());
+        kafkaTemplate.send(RIDE_STARTED_TOPIC, rideId, event);
 
         return mapToResponse(ride);
     }
 
     /**
      * Completes a ride that is currently in progress.
-     * Transitions ride status from RIDE_STARTED to COMPLETED.
-     * Records completion timestamp and sets actual fare equal to estimated fare.
-     *
-     * @param rideId the unique identifier of the ride to complete
-     * @return RideResponse with updated ride details
-     * @throws RuntimeException if ride not found or invalid status (must be RIDE_STARTED)
+     * Transitions: RIDE_STARTED -> COMPLETED
      */
     public RideResponse completeRide(String rideId) {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
-        if (ride.getStatus() != RideStatus.RIDE_STARTED) {
-            throw new RuntimeException("Ride cannot be completed. Current status: " + ride.getStatus());
-        }
+        ride.getStatus().validateTransition(RideStatus.COMPLETED);
 
         ride.setStatus(RideStatus.COMPLETED);
         ride.setCompletedAt(LocalDateTime.now());
         ride.setActualFare(ride.getEstimatedFare());
+
+        if (ride.getStartedAt() != null) {
+            double durationMinutes = java.time.Duration.between(
+                    ride.getStartedAt(), ride.getCompletedAt()).toMinutes();
+            ride.setDurationMinutes(durationMinutes);
+        }
+
         rideRepository.save(ride);
+
+        log.info("Ride {} completed", rideId);
+
+        RideCompletedEvent event = new RideCompletedEvent(
+                rideId, ride.getRiderId(), ride.getDriverId(),
+                ride.getActualFare(),
+                ride.getDistanceKm() != null ? ride.getDistanceKm() : 0,
+                ride.getDurationMinutes() != null ? ride.getDurationMinutes() : 0);
+        kafkaTemplate.send(RIDE_COMPLETED_TOPIC, rideId, event);
 
         return mapToResponse(ride);
     }
 
     /**
-     * Cancels a ride at any stage before completion.
-     * Transitions ride status to CANCELLED.
-     * Can be called from any status except COMPLETED.
-     *
-     * @param rideId the unique identifier of the ride to cancel
-     * @return RideResponse with updated ride details
-     * @throws RuntimeException if ride not found
+     * Cancels a ride. Can be called from any state except COMPLETED.
      */
-    public RideResponse cancelRide(String rideId) {
+    public RideResponse cancelRide(String rideId, RideCancelRequest cancelRequest) {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
 
+        ride.getStatus().validateTransition(RideStatus.CANCELLED);
+
         ride.setStatus(RideStatus.CANCELLED);
+        ride.setCancellationReason(cancelRequest.getReason());
+        ride.setCancelledBy(cancelRequest.getCancelledBy());
+        ride.setCancelledAt(LocalDateTime.now());
         rideRepository.save(ride);
 
+        log.info("Ride {} cancelled. Reason: {}", rideId, cancelRequest.getReason());
+
+        RideCancelledEvent event = new RideCancelledEvent(
+                rideId, ride.getRiderId(), ride.getDriverId(),
+                cancelRequest.getReason().name(),
+                cancelRequest.getCancelledBy());
+        kafkaTemplate.send(RIDE_CANCELLED_TOPIC, rideId, event);
+
         return mapToResponse(ride);
+    }
+
+    /**
+     * Legacy cancel method for backward compatibility.
+     */
+    public RideResponse cancelRide(String rideId) {
+        RideCancelRequest request = new RideCancelRequest(
+                com.rideshare.rideservice.model.RideCancellationReason.RIDER_CANCELLED,
+                "rider");
+        return cancelRide(rideId, request);
     }
 
     /**
      * Retrieves a ride by its unique identifier.
-     *
-     * @param rideId the unique identifier of the ride
-     * @return RideResponse with ride details
-     * @throws RuntimeException if ride not found
      */
     public RideResponse getRideById(String rideId) {
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
-
         return mapToResponse(ride);
     }
 
     /**
-     * Retrieves all rides for a specific rider, ordered by creation date descending.
-     *
-     * @param riderId the unique identifier of the rider
-     * @return list of RideResponse objects ordered by createdAt descending
+     * Retrieves all rides for a specific rider.
      */
     public List<RideResponse> getRidesByRider(String riderId) {
-        List<Ride> rides = rideRepository.findByRiderIdOrderByCreatedAtDesc(riderId);
-        return rides.stream()
-                .map(this::mapToResponse)
-                .toList();
+        return rideRepository.findByRiderIdOrderByCreatedAtDesc(riderId)
+                .stream().map(this::mapToResponse).toList();
     }
 
     /**
-     * Maps a Ride entity to a RideResponse DTO.
-     *
-     * @param ride the Ride entity to map
-     * @return RideResponse with all ride details
+     * Retrieves active rides for a driver.
      */
+    public List<RideResponse> getActiveRidesByDriver(String driverId) {
+        return rideRepository.findByDriverIdAndStatusIn(driverId,
+                List.of(RideStatus.ACCEPTED, RideStatus.DRIVER_ARRIVING, RideStatus.RIDE_STARTED))
+                .stream().map(this::mapToResponse).toList();
+    }
+
+    /**
+     * Sets estimated fare with surge multiplier.
+     */
+    public RideResponse setFareEstimate(String rideId, double estimatedFare, double surgeMultiplier) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+        ride.setEstimatedFare(estimatedFare);
+        ride.setSurgeMultiplier(surgeMultiplier);
+        rideRepository.save(ride);
+        return mapToResponse(ride);
+    }
+
     private RideResponse mapToResponse(Ride ride) {
         RideResponse response = new RideResponse();
         response.setId(ride.getId());
@@ -215,58 +267,21 @@ public class RideService {
         response.setDropLongitude(ride.getDropLongitude());
         response.setDropAddress(ride.getDropAddress());
         response.setStatus(ride.getStatus());
+        response.setCancellationReason(ride.getCancellationReason());
+        response.setCancelledBy(ride.getCancelledBy());
         response.setEstimatedFare(ride.getEstimatedFare());
         response.setActualFare(ride.getActualFare());
+        response.setDistanceKm(ride.getDistanceKm());
+        response.setDurationMinutes(ride.getDurationMinutes());
+        response.setVehicleType(ride.getVehicleType());
+        response.setSurgeMultiplier(ride.getSurgeMultiplier());
         response.setCreatedAt(ride.getCreatedAt());
         response.setUpdatedAt(ride.getUpdatedAt());
         response.setStartedAt(ride.getStartedAt());
         response.setCompletedAt(ride.getCompletedAt());
+        response.setCancelledAt(ride.getCancelledAt());
+        response.setAcceptedAt(ride.getAcceptedAt());
+        response.setDriverArrivedAt(ride.getDriverArrivedAt());
         return response;
-    }
-
-    /**
-     * Calculates estimated fare based on distance between pickup and drop-off locations.
-     * Uses Haversine formula to calculate distance in kilometers.
-     * Fare = BASE_FARE + (distance_km * PER_KM_RATE)
-     *
-     * @param request the ride request containing pickup and drop coordinates
-     * @return estimated fare in the local currency
-     */
-    private double calculateEstimateFare(RideRequest request) {
-        double distanceKm = calculateDistance(
-                request.getPickupLatitude(),
-                request.getPickupLongitude(),
-                request.getDropLatitude(),
-                request.getDropLongitude());
-
-        // Fare calculation: base fare + per km rate
-        final double BASE_FARE = 80.0; // Base fare in Rupee (₹)
-        final double PER_KM_RATE = 20.0; // Rate per kilometer
-
-        return BASE_FARE + (distanceKm * PER_KM_RATE);
-    }
-
-    /**
-     * Calculates distance between two geographic coordinates using Haversine formula.
-     *
-     * @param lat1 latitude of first point in degrees
-     * @param lon1 longitude of first point in degrees
-     * @param lat2 latitude of second point in degrees
-     * @param lon2 longitude of second point in degrees
-     * @return distance in kilometers
-     */
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int EARTH_RADIUS_KM = 6371;
-
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return EARTH_RADIUS_KM * c;
     }
 }

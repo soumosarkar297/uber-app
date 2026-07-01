@@ -10,6 +10,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * Event published when a document is uploaded.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Data
 @Builder

@@ -20,13 +20,12 @@ import com.rideshare.driverservice.entity.VerificationStatus;
 import com.rideshare.driverservice.event.DocumentUploadedEvent;
 import com.rideshare.driverservice.event.DocumentVerifiedEvent;
 import com.rideshare.driverservice.repository.DocumentRepository;
-import com.rideshare.driverservice.service.DriverEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * Service for document management.
- * Handles document upload, retrieval, and verification workflow.
+ * Service for document management. Handles document upload, retrieval, and
+ * verification workflow.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -64,10 +63,10 @@ public class DocumentService {
 
         Document savedDocument = documentRepository.save(document);
         eventPublisher.publishDocumentUploaded(new DocumentUploadedEvent(
-            savedDocument.getId(),
-            savedDocument.getDriverId(),
-            savedDocument.getDocumentType().name(),
-            Instant.now()
+                savedDocument.getId(),
+                savedDocument.getDriverId(),
+                savedDocument.getDocumentType().name(),
+                Instant.now()
         ));
         return mapToDocumentResponse(savedDocument);
     }
@@ -137,10 +136,10 @@ public class DocumentService {
 
         Document updatedDocument = documentRepository.save(document);
         eventPublisher.publishDocumentVerified(new DocumentVerifiedEvent(
-            updatedDocument.getId(),
-            updatedDocument.getDriverId(),
-            updatedDocument.getVerificationStatus().name(),
-            Instant.now()
+                updatedDocument.getId(),
+                updatedDocument.getDriverId(),
+                updatedDocument.getVerificationStatus().name(),
+                Instant.now()
         ));
         return mapToDocumentResponse(updatedDocument);
     }

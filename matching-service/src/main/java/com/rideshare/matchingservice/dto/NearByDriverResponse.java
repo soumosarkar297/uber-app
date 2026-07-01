@@ -5,35 +5,29 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Data transfer object representing a nearby driver response from the Location Service.
- * Contains driver identification, current location coordinates, and distance from the search center.
+ * DTO representing a nearby driver with location and movement data.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
  * @since 1.0.0
  */
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class NearByDriverResponse {
 
-    /**
-     * Unique identifier of the driver.
-     */
     private String driverId;
 
-    /**
-     * Latitude coordinate of the driver's current location.
-     */
     private double latitude;
 
-    /**
-     * Longitude coordinate of the driver's current location.
-     */
     private double longitude;
 
-    /**
-     * Distance from the search center in kilometers.
-     */
+    /** Distance from the search center in kilometers */
     private double distanceInKm;
+
+    /** Driver's current heading in degrees (0-360) */
+    private Double heading;
+
+    /** Driver's current speed in km/h */
+    private Double speed;
 }

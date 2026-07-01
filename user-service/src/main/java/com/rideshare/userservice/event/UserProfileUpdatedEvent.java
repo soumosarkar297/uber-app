@@ -11,6 +11,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * Event published when a user's profile is updated.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Data
 @Builder

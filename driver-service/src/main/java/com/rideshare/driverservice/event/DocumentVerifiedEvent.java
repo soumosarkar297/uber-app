@@ -10,6 +10,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * Event published when a document verification status is updated.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Data
 @Builder

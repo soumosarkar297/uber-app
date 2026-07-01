@@ -20,6 +20,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * Handles OTP-based authentication including sending and verifying one-time passwords.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @RestController
 @RequestMapping("/api/auth/otp")
 @RequiredArgsConstructor

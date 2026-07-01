@@ -1,13 +1,13 @@
 package com.rideshare.locationservice.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Data transfer object for driver location update requests. Contains the
- * driver's unique identifier and their current geographic coordinates. Used by
- * the driver's app to send location updates every ~3 seconds.
+ * Request payload for updating a driver's live location.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -18,20 +18,21 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class DriverLocationRequest {
 
-    /**
-     * Unique identifier of the driver. Must not be null or empty.
-     */
+    @NotBlank(message = "Driver ID is required")
     private String driverId;
 
-    /**
-     * Latitude coordinate of the driver's current location. Valid range: -90 to
-     * 90 degrees.
-     */
+    @NotNull(message = "Latitude is required")
     private double latitude;
 
-    /**
-     * Longitude coordinate of the driver's current location. Valid range: -180
-     * to 180 degrees.
-     */
+    @NotNull(message = "Longitude is required")
     private double longitude;
+
+    /** Optional heading in degrees (0-360) indicating direction of travel */
+    private Double heading;
+
+    /** Optional speed in km/h */
+    private Double speed;
+
+    /** Optional accuracy in meters */
+    private Double accuracy;
 }

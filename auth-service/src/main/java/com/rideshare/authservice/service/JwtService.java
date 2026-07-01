@@ -1,17 +1,5 @@
 package com.rideshare.authservice.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.SignatureException;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
@@ -20,12 +8,26 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
-import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.SignatureException;
+
 /**
- * Service for JWT token management including generation, validation, JWKS export, and token blacklisting.
- * Uses RS256 algorithm with RSA 2048-bit key pair.
+ * Service for JWT token management including generation, validation, JWKS
+ * export, and token blacklisting. Uses RS256 algorithm with RSA 2048-bit key
+ * pair.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -107,8 +109,8 @@ public class JwtService {
     }
 
     /**
-     * Validates a JWT token and returns its claims.
-     * Verifies signature, expiry, and issuer.
+     * Validates a JWT token and returns its claims. Verifies signature, expiry,
+     * and issuer.
      *
      * @param token the JWT token to validate
      * @return the parsed claims
@@ -295,8 +297,8 @@ public class JwtService {
     }
 
     /**
-     * Creates a SHA-256 hash of the token for use as Redis key.
-     * Avoids storing full tokens in Redis.
+     * Creates a SHA-256 hash of the token for use as Redis key. Avoids storing
+     * full tokens in Redis.
      *
      * @param token the token to hash
      * @return hex-encoded SHA-256 hash

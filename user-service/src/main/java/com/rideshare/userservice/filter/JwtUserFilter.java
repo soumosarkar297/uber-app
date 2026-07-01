@@ -19,6 +19,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Extracts user identity from JWT and populates the UserContext for each request.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtUserFilter extends OncePerRequestFilter {

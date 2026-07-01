@@ -271,6 +271,217 @@ services:
       - rideshare-network
 
   # ─────────────────────────────────────────
+  # PRICING SERVICE — Dynamic Pricing, Surge, Promo Codes
+  # ─────────────────────────────────────────
+  pricing-service:
+    build:
+      context: ./pricing-service
+      dockerfile: Dockerfile
+    container_name: pricing-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8087:8087"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8087
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8087/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
+  # PAYMENT SERVICE — Wallet, Payments & Transactions
+  # ─────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8088
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
+  # NOTIFICATION SERVICE — Push, Email & Real-time
+  # ─────────────────────────────────────────
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8089:8089"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8089
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8089/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
+  # RATING SERVICE — Reviews & Ratings
+  # ─────────────────────────────────────────
+  rating-service:
+    build:
+      context: ./rating-service
+      dockerfile: Dockerfile
+    container_name: rating-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8090
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8090/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
+  # TRIP SERVICE — Trip History & Analytics
+  # ─────────────────────────────────────────
+  trip-service:
+    build:
+      context: ./trip-service
+      dockerfile: Dockerfile
+    container_name: trip-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8091:8091"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8091
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8091/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
+  # DRIVER ONBOARDING SERVICE — Verification & Approval
+  # ─────────────────────────────────────────
+  driver-onboarding-service:
+    build:
+      context: ./driver-onboarding-service
+      dockerfile: Dockerfile
+    container_name: driver-onboarding-service
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8092:8092"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVER_PORT: 8092
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8092/api/v1/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - rideshare-network
+
+  # ─────────────────────────────────────────
   # API GATEWAY — Single Entry Point + Swagger Aggregation
   # ─────────────────────────────────────────
   gateway-service:
@@ -289,6 +500,18 @@ services:
       ride-service:
         condition: service_healthy
       driver-service:
+        condition: service_healthy
+      pricing-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+      rating-service:
+        condition: service_healthy
+      trip-service:
+        condition: service_healthy
+      driver-onboarding-service:
         condition: service_healthy
     ports:
       - "8080:8080"
