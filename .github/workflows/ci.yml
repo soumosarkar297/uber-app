@@ -28,8 +28,9 @@ jobs:
         with:
           java-version: '25'
           distribution: 'temurin'
+          maven-version: '3.9.16'
           cache: maven
 
       - name: Build
-        run: ./mvnw clean package -DskipTests -B
+        run: mvn clean package -DskipTests -B
         working-directory: ${{ matrix.service }}
