@@ -16,35 +16,22 @@ import com.rideshare.locationservice.dto.DriverLocationRequest;
 import com.rideshare.locationservice.dto.NearByDriverResponse;
 import com.rideshare.locationservice.service.LocationService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * REST controller for driver location management.
- * Provides endpoints for updating driver locations, finding nearby drivers,
- * and removing drivers when they go offline.
- *
- * @author Soumo Sarkar
- * @version 1.0.0
- * @since 1.0.0
- */
 @RestController
 @RequestMapping("/locations")
 @Slf4j
 @RequiredArgsConstructor
+@Tag(name = "Location Tracking", description = "Driver location updates and nearby driver search")
 public class LocationController {
 
     private final LocationService locationService;
 
-    /**
-     * Updates the location of a driver.
-     * Called by the driver's app approximately every 3 seconds.
-     *
-     * @param driverLocationRequest the request containing driver ID, latitude, and longitude
-     * @return ResponseEntity with success message
-     * @throws IllegalArgumentException if the request is invalid
-     */
     @PostMapping("/drivers/update")
+    @Operation(summary = "Update Driver Location", description = "Updates a driver's live location (called every ~3s by driver app)")
     public ResponseEntity<String> updateDriverLocation(
             @RequestBody DriverLocationRequest driverLocationRequest
     ) {
@@ -52,17 +39,8 @@ public class LocationController {
         return ResponseEntity.ok("Driver location updated");
     }
 
-    /**
-     * Finds nearby drivers within a specified radius.
-     * Called by the Matching Service when a ride is requested.
-     *
-     * @param latitude  the latitude of the search center
-     * @param longitude the longitude of the search center
-     * @param radius    the search radius in kilometers (default: 5.0)
-     * @return list of nearby drivers with their locations and distances, sorted by distance ascending
-     * @throws IllegalArgumentException if coordinates are invalid
-     */
     @GetMapping("/drivers/nearby")
+    @Operation(summary = "Find Nearby Drivers", description = "Finds drivers within a specified radius of a location")
     public ResponseEntity<List<NearByDriverResponse>> getNearByDrivers(
             @RequestParam double latitude,
             @RequestParam double longitude,
@@ -71,15 +49,8 @@ public class LocationController {
         return ResponseEntity.ok(locationService.findNearByDrivers(latitude, longitude, radius));
     }
 
-    /**
-     * Removes a driver from the location tracking system.
-     * Called when a driver goes offline.
-     *
-     * @param driverId the unique identifier of the driver to remove
-     * @return ResponseEntity with success message
-     * @throws IllegalArgumentException if driverId is null or empty
-     */
     @DeleteMapping("/drivers/{driverId}")
+    @Operation(summary = "Remove Driver", description = "Removes a driver from location tracking (goes offline)")
     public ResponseEntity<String> removeDriver(@PathVariable String driverId) {
         locationService.removeDriver(driverId);
         return ResponseEntity.ok("Driver removed successfully");

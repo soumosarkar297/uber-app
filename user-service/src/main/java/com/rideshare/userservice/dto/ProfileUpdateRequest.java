@@ -34,27 +34,4 @@ public class ProfileUpdateRequest {
 
     @Size(max = 50, message = "Preferred payment method must not exceed 50 characters")
     private String preferredPaymentMethod;
-
-    // Driver-specific fields
-    @Size(max = 50, message = "License number must not exceed 50 characters")
-    private String licenseNumber;
-
-    private String licenseExpiryDate;
-
-    @Size(max = 20, message = "Vehicle number must not exceed 20 characters")
-    private String vehicleNumber;
-
-    @Size(max = 50, message = "Vehicle model must not exceed 50 characters")
-    private String vehicleModel;
-
-    @Size(max = 30, message = "Vehicle color must not exceed 30 characters")
-    private String vehicleColor;
-
-    private Integer vehicleYear;
-
-    private String vehicleType;
-
-    private Boolean isAvailable;
-
-    private Boolean isOnline;
 }

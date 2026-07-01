@@ -1,13 +1,4 @@
-package com.rideshare.userservice.dto;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+package com.rideshare.driverservice.dto;
 
 /**
  * DTO for driver profile response.
@@ -16,12 +7,30 @@ import lombok.NoArgsConstructor;
  * @version 1.0.0
  * @since 1.0.0
  */
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 @Data
-@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class DriverProfileResponse extends UserProfileResponse {
+public class DriverProfileResponse {
 
+    private UUID id;
+    private String firstName;
+    private String lastName;
+    private String phoneNumber;
+    private String email;
+    private String profileImageUrl;
+    private String verificationStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private String licenseNumber;
     private LocalDate licenseExpiryDate;
     private String vehicleNumber;
@@ -37,4 +46,8 @@ public class DriverProfileResponse extends UserProfileResponse {
     private Double currentLatitude;
     private Double currentLongitude;
     private LocalDateTime lastLocationUpdate;
+
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
 }

@@ -1,4 +1,4 @@
-package com.rideshare.userservice.event;
+package com.rideshare.driverservice.event;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Event published when a new driver is registered with vehicle info.
+ * Event published when a new driver is registered with vehicle information.
  */
 @Data
 @Builder

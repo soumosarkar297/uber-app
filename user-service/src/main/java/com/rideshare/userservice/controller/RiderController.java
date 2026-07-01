@@ -22,6 +22,8 @@ import com.rideshare.userservice.dto.RiderRegistrationRequest;
 import com.rideshare.userservice.entity.User;
 import com.rideshare.userservice.service.RiderService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,11 +31,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/riders")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Rider Management", description = "Rider registration and profile management")
 public class RiderController {
 
     private final RiderService riderService;
 
     @PostMapping("/register")
+    @Operation(summary = "Register Rider", description = "Registers a new rider account")
     public ResponseEntity<ApiResponse<RegistrationResponse>> registerRider(@Valid @RequestBody RiderRegistrationRequest request) {
         log.info("Registering new rider with phone: {}", request.getPhoneNumber());
         RegistrationResponse response = riderService.registerRider(request);
@@ -41,6 +45,7 @@ public class RiderController {
     }
 
     @GetMapping("/profile")
+    @Operation(summary = "Get Rider Profile", description = "Returns the authenticated rider's profile")
     public ResponseEntity<ApiResponse<RiderProfileResponse>> getProfile() {
         User currentUser = UserContext.getCurrentUser();
         if (currentUser == null) {
@@ -54,6 +59,7 @@ public class RiderController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get Rider by ID", description = "Returns a rider's profile by their UUID")
     public ResponseEntity<ApiResponse<RiderProfileResponse>> getRiderById(@PathVariable UUID id) {
         log.info("Getting rider by ID: {}", id);
         return riderService.getRiderProfile(id)
@@ -62,6 +68,7 @@ public class RiderController {
     }
 
     @PutMapping("/profile")
+    @Operation(summary = "Update Rider Profile", description = "Updates the authenticated rider's profile")
     public ResponseEntity<ApiResponse<RiderProfileResponse>> updateProfile(
             @Valid @RequestBody ProfileUpdateRequest request) {
         User currentUser = UserContext.getCurrentUser();

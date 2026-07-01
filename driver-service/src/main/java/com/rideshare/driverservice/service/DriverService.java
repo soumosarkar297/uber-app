@@ -1,7 +1,9 @@
-package com.rideshare.userservice.service;
+package com.rideshare.driverservice.service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -10,20 +12,18 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.rideshare.userservice.dto.DocumentUploadRequest;
-import com.rideshare.userservice.dto.DriverProfileResponse;
-import com.rideshare.userservice.dto.DriverRegistrationRequest;
-import com.rideshare.userservice.dto.ProfileUpdateRequest;
-import com.rideshare.userservice.dto.RegistrationResponse;
-import com.rideshare.userservice.entity.Document;
-import com.rideshare.userservice.entity.DocumentType;
-import com.rideshare.userservice.entity.Driver;
-import com.rideshare.userservice.entity.UserType;
-import com.rideshare.userservice.entity.VerificationStatus;
-import com.rideshare.userservice.entity.VehicleType;
-import com.rideshare.userservice.event.DriverRegisteredEvent;
-import com.rideshare.userservice.event.UserRegisteredEvent;
-import com.rideshare.userservice.repository.UserRepository;
+import com.rideshare.driverservice.dto.DocumentUploadRequest;
+import com.rideshare.driverservice.dto.DriverProfileResponse;
+import com.rideshare.driverservice.dto.DriverProfileUpdateRequest;
+import com.rideshare.driverservice.dto.DriverRegistrationRequest;
+import com.rideshare.driverservice.dto.RegistrationResponse;
+import com.rideshare.driverservice.entity.DocumentType;
+import com.rideshare.driverservice.entity.Driver;
+import com.rideshare.driverservice.entity.VerificationStatus;
+import com.rideshare.driverservice.entity.VehicleType;
+import com.rideshare.driverservice.event.DriverRegisteredEvent;
+import com.rideshare.driverservice.event.UserRegisteredEvent;
+import com.rideshare.driverservice.repository.DriverRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,42 +40,41 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class DriverService {
 
-    private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
     private final DocumentService documentService;
-    private final UserEventPublisher eventPublisher;
+    private final DriverEventPublisher eventPublisher;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     /**
      * Register a new driver.
-     * Creates User, Driver entity, and initial documents.
+     * Creates Driver entity and initial documents.
      */
     @Transactional
     public RegistrationResponse registerDriver(DriverRegistrationRequest request) {
         // Validate phone number and email don't exist
-        if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
+        if (driverRepository.existsByPhoneNumber(request.getPhoneNumber())) {
             throw new IllegalArgumentException("Phone number already registered");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (driverRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
         }
         // Check license number uniqueness
-        if (userRepository.existsByLicenseNumber(request.getLicenseNumber())) {
+        if (driverRepository.existsByLicenseNumber(request.getLicenseNumber())) {
             throw new IllegalArgumentException("License number already registered");
         }
         // Check vehicle number uniqueness
-        if (userRepository.existsByVehicleNumber(request.getVehicleNumber())) {
+        if (driverRepository.existsByVehicleNumber(request.getVehicleNumber())) {
             throw new IllegalArgumentException("Vehicle number already registered");
         }
 
-        // Create Driver entity (extends User)
+        // Create Driver entity
         Driver driver = new Driver();
         driver.setFirstName(request.getFirstName());
         driver.setLastName(request.getLastName());
         driver.setPhoneNumber(request.getPhoneNumber());
         driver.setEmail(request.getEmail());
         driver.setProfileImageUrl(request.getProfileImageUrl());
-        driver.setUserType(UserType.DRIVER);
         driver.setVerificationStatus(VerificationStatus.PENDING);
 
         // Driver-specific fields
@@ -98,14 +97,14 @@ public class DriverService {
         driver.setRating(5.0);
         driver.setEarnings(BigDecimal.ZERO);
 
-        Driver savedDriver = userRepository.save(driver);
+        Driver savedDriver = driverRepository.save(driver);
 
         // Publish user registered event
         UserRegisteredEvent userEvent = UserRegisteredEvent.builder()
                 .userId(savedDriver.getId())
                 .phoneNumber(savedDriver.getPhoneNumber())
-                .userType(UserType.DRIVER.name())
-                .timestamp(java.time.Instant.now())
+                .userType("DRIVER")
+                .timestamp(Instant.now())
                 .build();
         eventPublisher.publishUserRegistered(userEvent);
 
@@ -118,7 +117,7 @@ public class DriverService {
                 .vehicleYear(savedDriver.getVehicleYear())
                 .vehicleType(savedDriver.getVehicleType() != null ? savedDriver.getVehicleType().name() : null)
                 .licenseNumber(savedDriver.getLicenseNumber())
-                .timestamp(java.time.Instant.now())
+                .timestamp(Instant.now())
                 .build();
         eventPublisher.publishDriverRegistered(driverEvent);
 
@@ -135,7 +134,7 @@ public class DriverService {
 
         return new RegistrationResponse(
                 savedDriver.getId(),
-                UserType.DRIVER.name(),
+                "DRIVER",
                 VerificationStatus.PENDING.name(),
                 "Driver registered successfully. Document verification pending."
         );
@@ -144,9 +143,9 @@ public class DriverService {
     /**
      * Create initial document for driver registration.
      */
-    private void createInitialDocument(UUID userId, DocumentType documentType, String fileUrl, String fileName) {
+    private void createInitialDocument(UUID driverId, DocumentType documentType, String fileUrl, String fileName) {
         DocumentUploadRequest docRequest = new DocumentUploadRequest();
-        docRequest.setUserId(userId);
+        docRequest.setDriverId(driverId);
         docRequest.setDocumentType(documentType.name());
         docRequest.setFileUrl(fileUrl);
         docRequest.setFileName(fileName);
@@ -157,9 +156,7 @@ public class DriverService {
      * Get driver profile by ID.
      */
     public Optional<DriverProfileResponse> getDriverProfile(UUID driverId) {
-        return userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        return driverRepository.findById(driverId)
                 .map(this::mapToDriverProfileResponse);
     }
 
@@ -167,8 +164,7 @@ public class DriverService {
      * Get driver profile by phone number.
      */
     public Optional<DriverProfileResponse> getDriverProfileByPhone(String phoneNumber) {
-        return userRepository.findByPhoneNumberAndUserType(phoneNumber, UserType.DRIVER)
-                .map(user -> (Driver) user)
+        return driverRepository.findByPhoneNumber(phoneNumber)
                 .map(this::mapToDriverProfileResponse);
     }
 
@@ -176,8 +172,7 @@ public class DriverService {
      * Get driver profile by license number.
      */
     public Optional<DriverProfileResponse> getDriverProfileByLicense(String licenseNumber) {
-        return userRepository.findByLicenseNumber(licenseNumber)
-                .map(user -> (Driver) user)
+        return driverRepository.findByLicenseNumber(licenseNumber)
                 .map(this::mapToDriverProfileResponse);
     }
 
@@ -185,10 +180,8 @@ public class DriverService {
      * Update driver profile.
      */
     @Transactional
-    public DriverProfileResponse updateDriverProfile(UUID driverId, ProfileUpdateRequest request) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+    public DriverProfileResponse updateDriverProfile(UUID driverId, DriverProfileUpdateRequest request) {
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         // Update common fields
@@ -199,7 +192,7 @@ public class DriverService {
             driver.setLastName(request.getLastName());
         }
         if (request.getEmail() != null) {
-            if (userRepository.existsByEmail(request.getEmail()) && !driver.getEmail().equals(request.getEmail())) {
+            if (driverRepository.existsByEmail(request.getEmail()) && !driver.getEmail().equals(request.getEmail())) {
                 throw new IllegalArgumentException("Email already in use");
             }
             driver.setEmail(request.getEmail());
@@ -210,7 +203,7 @@ public class DriverService {
 
         // Update driver-specific fields
         if (request.getLicenseNumber() != null) {
-            if (userRepository.existsByLicenseNumber(request.getLicenseNumber()) && !driver.getLicenseNumber().equals(request.getLicenseNumber())) {
+            if (driverRepository.existsByLicenseNumber(request.getLicenseNumber()) && !driver.getLicenseNumber().equals(request.getLicenseNumber())) {
                 throw new IllegalArgumentException("License number already in use");
             }
             driver.setLicenseNumber(request.getLicenseNumber());
@@ -219,7 +212,7 @@ public class DriverService {
             driver.setLicenseExpiryDate(LocalDate.parse(request.getLicenseExpiryDate(), DATE_FORMATTER));
         }
         if (request.getVehicleNumber() != null) {
-            if (userRepository.existsByVehicleNumber(request.getVehicleNumber()) && !driver.getVehicleNumber().equals(request.getVehicleNumber())) {
+            if (driverRepository.existsByVehicleNumber(request.getVehicleNumber()) && !driver.getVehicleNumber().equals(request.getVehicleNumber())) {
                 throw new IllegalArgumentException("Vehicle number already in use");
             }
             driver.setVehicleNumber(request.getVehicleNumber());
@@ -243,7 +236,7 @@ public class DriverService {
             driver.setIsOnline(request.getIsOnline());
         }
 
-        Driver updatedDriver = userRepository.save(driver);
+        Driver updatedDriver = driverRepository.save(driver);
         return mapToDriverProfileResponse(updatedDriver);
     }
 
@@ -252,13 +245,11 @@ public class DriverService {
      */
     @Transactional
     public Driver updateVerificationStatus(UUID driverId, VerificationStatus status) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setVerificationStatus(status);
-        return userRepository.save(driver);
+        return driverRepository.save(driver);
     }
 
     /**
@@ -266,16 +257,14 @@ public class DriverService {
      */
     @Transactional
     public void setOnlineStatus(UUID driverId, boolean isOnline) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setIsOnline(isOnline);
         if (!isOnline) {
             driver.setIsAvailable(false);
         }
-        userRepository.save(driver);
+        driverRepository.save(driver);
     }
 
     /**
@@ -283,13 +272,11 @@ public class DriverService {
      */
     @Transactional
     public void setAvailability(UUID driverId, boolean isAvailable) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setIsAvailable(isAvailable);
-        userRepository.save(driver);
+        driverRepository.save(driver);
     }
 
     /**
@@ -297,15 +284,13 @@ public class DriverService {
      */
     @Transactional
     public void updateLocation(UUID driverId, Double latitude, Double longitude) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setCurrentLatitude(latitude);
         driver.setCurrentLongitude(longitude);
-        driver.setLastLocationUpdate(java.time.LocalDateTime.now());
-        userRepository.save(driver);
+        driver.setLastLocationUpdate(LocalDateTime.now());
+        driverRepository.save(driver);
     }
 
     /**
@@ -313,13 +298,11 @@ public class DriverService {
      */
     @Transactional
     public void incrementTotalTrips(UUID driverId) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setTotalTrips(driver.getTotalTrips() + 1);
-        userRepository.save(driver);
+        driverRepository.save(driver);
     }
 
     /**
@@ -327,13 +310,11 @@ public class DriverService {
      */
     @Transactional
     public void addToEarnings(UUID driverId, BigDecimal amount) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setEarnings(driver.getEarnings().add(amount));
-        userRepository.save(driver);
+        driverRepository.save(driver);
     }
 
     /**
@@ -341,29 +322,26 @@ public class DriverService {
      */
     @Transactional
     public void updateRating(UUID driverId, Double newRating) {
-        Driver driver = userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("Driver not found with id: " + driverId));
 
         driver.setRating(newRating);
-        userRepository.save(driver);
+        driverRepository.save(driver);
     }
 
     /**
      * Get available drivers near a location (simplified - returns all available drivers).
      */
     public List<Driver> getAvailableDrivers() {
-        return userRepository.findAvailableDrivers();
+        return driverRepository.findAvailableDrivers();
     }
 
     /**
      * Check if driver exists and is verified.
      */
     public boolean isDriverVerified(UUID driverId) {
-        return userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> user.getVerificationStatus() == VerificationStatus.VERIFIED)
+        return driverRepository.findById(driverId)
+                .map(driver -> driver.getVerificationStatus() == VerificationStatus.VERIFIED)
                 .orElse(false);
     }
 
@@ -371,9 +349,7 @@ public class DriverService {
      * Check if driver is online and available.
      */
     public boolean isDriverOnlineAndAvailable(UUID driverId) {
-        return userRepository.findById(driverId)
-                .filter(user -> user.getUserType() == UserType.DRIVER)
-                .map(user -> (Driver) user)
+        return driverRepository.findById(driverId)
                 .map(driver -> driver.getIsOnline() && driver.getIsAvailable())
                 .orElse(false);
     }
@@ -389,7 +365,6 @@ public class DriverService {
         response.setPhoneNumber(driver.getPhoneNumber());
         response.setEmail(driver.getEmail());
         response.setProfileImageUrl(driver.getProfileImageUrl());
-        response.setUserType(driver.getUserType().name());
         response.setVerificationStatus(driver.getVerificationStatus().name());
         response.setCreatedAt(driver.getCreatedAt());
         response.setUpdatedAt(driver.getUpdatedAt());

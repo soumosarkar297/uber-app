@@ -24,6 +24,8 @@ import com.rideshare.userservice.entity.User;
 import com.rideshare.userservice.entity.VerificationStatus;
 import com.rideshare.userservice.service.DocumentService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,11 +33,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Document Management", description = "Document upload, verification, and management")
 public class DocumentController {
 
     private final DocumentService documentService;
 
     @PostMapping("/upload")
+    @Operation(summary = "Upload Document", description = "Uploads a new document for verification")
     public ResponseEntity<ApiResponse<DocumentResponse>> uploadDocument(@Valid @RequestBody DocumentUploadRequest request) {
         User currentUser = UserContext.getCurrentUser();
         if (currentUser == null) {
@@ -51,6 +55,7 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get Document by ID", description = "Returns a document by its UUID")
     public ResponseEntity<ApiResponse<DocumentResponse>> getDocumentById(@PathVariable UUID id) {
         log.info("Getting document by ID: {}", id);
         return documentService.getDocumentById(id)
@@ -59,6 +64,7 @@ public class DocumentController {
     }
 
     @GetMapping("/my")
+    @Operation(summary = "Get My Documents", description = "Returns all documents for the authenticated user")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> getMyDocuments(
             @RequestParam(required = false) String type) {
         User currentUser = UserContext.getCurrentUser();
@@ -77,6 +83,7 @@ public class DocumentController {
     }
 
     @GetMapping("/user/{userId}")
+    @Operation(summary = "Get User Documents", description = "Returns all documents for a specific user")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> getUserDocuments(@PathVariable UUID userId) {
         log.info("Getting documents for user: {}", userId);
         List<DocumentResponse> documents = documentService.getDocumentsByUserId(userId);
@@ -84,6 +91,7 @@ public class DocumentController {
     }
 
     @GetMapping("/pending")
+    @Operation(summary = "Get Pending Documents", description = "Returns all documents pending verification")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> getPendingDocuments() {
         log.info("Getting pending documents for verification");
         List<DocumentResponse> documents = documentService.getPendingDocuments();
@@ -91,6 +99,7 @@ public class DocumentController {
     }
 
     @GetMapping("/status/{status}")
+    @Operation(summary = "Get Documents by Status", description = "Returns documents filtered by verification status")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> getDocumentsByStatus(@PathVariable String status) {
         log.info("Getting documents with status: {}", status);
         try {
@@ -103,6 +112,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{id}/approve")
+    @Operation(summary = "Approve Document", description = "Approves a document after verification")
     public ResponseEntity<ApiResponse<DocumentResponse>> approveDocument(
             @PathVariable UUID id,
             @RequestParam String verifiedBy) {
@@ -116,6 +126,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{id}/reject")
+    @Operation(summary = "Reject Document", description = "Rejects a document with a reason")
     public ResponseEntity<ApiResponse<DocumentResponse>> rejectDocument(
             @PathVariable UUID id,
             @RequestParam String verifiedBy,
@@ -130,6 +141,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{id}/expire")
+    @Operation(summary = "Mark Document as Expired", description = "Marks a document as expired")
     public ResponseEntity<ApiResponse<DocumentResponse>> markAsExpired(@PathVariable UUID id) {
         log.info("Marking document as expired: {}", id);
         try {
@@ -141,6 +153,7 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete Document", description = "Deletes a document by its UUID")
     public ResponseEntity<ApiResponse<String>> deleteDocument(@PathVariable UUID id) {
         log.info("Deleting document: {}", id);
         try {

@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 
 import com.rideshare.userservice.event.DocumentUploadedEvent;
 import com.rideshare.userservice.event.DocumentVerifiedEvent;
-import com.rideshare.userservice.event.DriverRegisteredEvent;
 import com.rideshare.userservice.event.UserProfileUpdatedEvent;
 import com.rideshare.userservice.event.UserRegisteredEvent;
 
@@ -35,9 +34,6 @@ public class UserEventPublisher {
 
     @Value("${spring.kafka.topics.document-verified:document.verified}")
     private String documentVerifiedTopic;
-
-    @Value("${spring.kafka.topics.driver-registered:driver.registered}")
-    private String driverRegisteredTopic;
 
     /**
      * Publish user registered event.
@@ -116,26 +112,6 @@ public class UserEventPublisher {
                     });
         } catch (Exception e) {
             log.error("Error publishing DocumentVerifiedEvent for documentId: {}", event.getDocumentId(), e);
-        }
-    }
-
-    /**
-     * Publish driver registered event.
-     */
-    public void publishDriverRegistered(DriverRegisteredEvent event) {
-        try {
-            kafkaTemplate.send(driverRegisteredTopic, event.getUserId().toString(), event)
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.error("Failed to publish DriverRegisteredEvent for userId: {}", event.getUserId(), ex);
-                        } else {
-                            log.debug("Published DriverRegisteredEvent for userId: {} to topic: {} partition: {} offset: {}",
-                                    event.getUserId(), result.getRecordMetadata().topic(),
-                                    result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
-                        }
-                    });
-        } catch (Exception e) {
-            log.error("Error publishing DriverRegisteredEvent for userId: {}", event.getUserId(), e);
         }
     }
 }

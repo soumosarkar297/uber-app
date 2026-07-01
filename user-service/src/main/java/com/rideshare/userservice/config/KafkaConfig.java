@@ -8,7 +8,11 @@ import org.springframework.kafka.config.TopicBuilder;
 
 /**
  * Kafka configuration for user service event publishing.
- * Defines topics for user registration, profile updates, document events, and driver registration.
+ * Defines topics for user registration, profile updates, and document events.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
  */
 @Configuration
 public class KafkaConfig {
@@ -24,9 +28,6 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.topics.document-verified:document.verified}")
     private String documentVerifiedTopic;
-
-    @Value("${spring.kafka.topics.driver-registered:driver.registered}")
-    private String driverRegisteredTopic;
 
     /**
      * User registered topic.
@@ -67,17 +68,6 @@ public class KafkaConfig {
     @Bean
     public NewTopic documentVerifiedTopic() {
         return TopicBuilder.name(documentVerifiedTopic)
-                .partitions(3)
-                .replicas(1)
-                .build();
-    }
-
-    /**
-     * Driver registered topic.
-     */
-    @Bean
-    public NewTopic driverRegisteredTopic() {
-        return TopicBuilder.name(driverRegisteredTopic)
                 .partitions(3)
                 .replicas(1)
                 .build();

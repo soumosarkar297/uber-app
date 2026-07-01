@@ -1,7 +1,7 @@
-package com.rideshare.userservice.entity;
+package com.rideshare.driverservice.entity;
 
 /**
- * Enumeration of vehicle types available for drivers.
+ * Enumeration of vehicle types available for rides.
  *
  * @author Soumo Sarkar
  * @version 1.0.0

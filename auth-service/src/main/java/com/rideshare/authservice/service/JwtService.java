@@ -50,7 +50,7 @@ public class JwtService {
             RedisTemplate<String, Object> redisTemplate,
             @Value("${jwt.access-token-expiry-minutes:60}") int accessTokenExpiryMinutes,
             @Value("${jwt.refresh-token-expiry-days:30}") int refreshTokenExpiryDays,
-            @Value("${jwt.issuer:http://localhost:9000}") String issuer) {
+            @Value("${jwt.issuer:http://localhost:8081}") String issuer) {
         this.keyPair = rsaKeyPair;
         this.redisTemplate = redisTemplate;
         this.accessTokenExpiryMinutes = accessTokenExpiryMinutes;

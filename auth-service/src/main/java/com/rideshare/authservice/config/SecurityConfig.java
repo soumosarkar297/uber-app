@@ -14,6 +14,14 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Security configuration for the Auth Service.
+ * Configures JWT-based authentication with RSA key pairs and defines public endpoints.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -30,7 +38,11 @@ public class SecurityConfig {
                     "/api/auth/otp/**",
                     "/api/auth/token/refresh",
                     "/api/auth/token/jwks",
-                    "/actuator/**"
+                    "/actuator/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/api-docs/**",
+                    "/v3/api-docs/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

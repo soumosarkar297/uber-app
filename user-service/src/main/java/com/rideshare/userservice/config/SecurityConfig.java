@@ -9,6 +9,14 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Security configuration for the User Service.
+ * Configures JWT-based authentication with JWKS URI for token validation.
+ *
+ * @author Soumo Sarkar
+ * @version 1.0.0
+ * @since 1.0.0
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -20,8 +28,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/riders/register",
-                    "/api/drivers/register",
-                    "/actuator/**"
+                    "/actuator/**",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/api-docs/**",
+                    "/v3/api-docs/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
@@ -37,7 +48,7 @@ public class SecurityConfig {
     public JwtDecoder jwtDecoder() {
         String jwkSetUri = System.getenv("JWKS_URI");
         if (jwkSetUri == null || jwkSetUri.isBlank()) {
-            jwkSetUri = "http://localhost:9000/api/auth/token/jwks";
+            jwkSetUri = "http://localhost:8081/api/v1/api/auth/token/jwks";
         }
         return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
     }

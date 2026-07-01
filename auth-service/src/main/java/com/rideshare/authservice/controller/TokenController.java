@@ -7,6 +7,8 @@ import com.rideshare.authservice.dto.TokenResponse;
 import com.rideshare.authservice.dto.TokenRevokeRequest;
 import com.rideshare.authservice.service.DeviceService;
 import com.rideshare.authservice.service.JwtService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,32 +21,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Controller for token management operations.
- * Handles token refresh, revocation, and JWKS endpoint.
- *
- * @author Soumo Sarkar
- * @version 1.0.0
- * @since 1.0.0
- */
 @RestController
 @RequestMapping("/api/auth/token")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Token Management", description = "Token refresh, revocation, and JWKS endpoint")
 public class TokenController {
 
     private final JwtService jwtService;
     private final DeviceService deviceService;
 
-    /**
-     * Refreshes access token using a valid refresh token.
-     * Validates refresh token, checks device binding, blacklists old refresh token.
-     * POST /api/auth/token/refresh
-     *
-     * @param request the token refresh request containing refresh token and device ID
-     * @return new tokens response
-     */
     @PostMapping("/refresh")
+    @Operation(summary = "Refresh Token", description = "Refreshes access token using a valid refresh token")
     public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         String refreshToken = request.getRefreshToken();
         String deviceId = request.getDeviceId();
@@ -96,17 +84,8 @@ public class TokenController {
         }
     }
 
-    /**
-     * Revokes (logs out) by blacklisting the access token.
-     * Requires authentication via Bearer token.
-     * POST /api/auth/token/revoke
-     *
-     * @param authentication the authenticated user principal
-     * @param request the revoke request containing optional device ID
-     * @param httpServletRequest the HTTP request to extract the access token
-     * @return success message
-     */
     @PostMapping("/revoke")
+    @Operation(summary = "Revoke Token", description = "Revokes (logs out) by blacklisting the access token")
     public ResponseEntity<ApiResponse<Void>> revokeToken(
             Authentication authentication,
             @Valid @RequestBody(required = false) TokenRevokeRequest request,
@@ -129,22 +108,14 @@ public class TokenController {
             // Revoke specific device
             deviceService.revokeDevice(phoneNumber, deviceId, jwtService);
         } else {
-            // Revoke all devices - blacklist all refresh tokens would require
-            // tracking tokens per device. For now, we rely on device validation
-            // at request time to check registration status.
             log.info("Revoking all devices for user: {} (token blacklisting for all devices not fully implemented)", phoneNumber);
         }
 
         return ResponseEntity.ok(ApiResponse.<Void>success("Tokens revoked successfully", null));
     }
 
-    /**
-     * Returns the JWK Set for public key distribution.
-     * GET /api/auth/token/jwks
-     *
-     * @return JWK Set JSON
-     */
     @GetMapping("/jwks")
+    @Operation(summary = "Get JWKS", description = "Returns the JWK Set for public key distribution")
     public ResponseEntity<JsonNode> getJwks() {
         log.debug("Serving JWKS endpoint");
         JsonNode jwks = jwtService.getJwkSet();

@@ -215,15 +215,6 @@ public class DocumentService {
     }
 
     /**
-     * Check if all required driver documents are verified.
-     */
-    public boolean areAllDriverDocumentsVerified(UUID driverId) {
-        long totalRequired = 3; // DRIVING_LICENSE, VEHICLE_REGISTRATION, VEHICLE_INSURANCE
-        long verifiedCount = documentRepository.countByUserIdAndVerificationStatus(driverId, VerificationStatus.VERIFIED);
-        return verifiedCount >= totalRequired;
-    }
-
-    /**
      * Parse document type string to enum.
      */
     private DocumentType parseDocumentType(String documentType) {

@@ -7,6 +7,8 @@ import com.rideshare.authservice.dto.TokenResponse;
 import com.rideshare.authservice.service.DeviceService;
 import com.rideshare.authservice.service.JwtService;
 import com.rideshare.authservice.service.OtpService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,32 +20,19 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/**
- * Controller for OTP-based authentication operations.
- * Handles OTP sending and verification with token generation.
- *
- * @author Soumo Sarkar
- * @version 1.0.0
- * @since 1.0.0
- */
 @RestController
 @RequestMapping("/api/auth/otp")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "OTP Authentication", description = "OTP sending and verification endpoints")
 public class OtpController {
 
     private final OtpService otpService;
     private final JwtService jwtService;
     private final DeviceService deviceService;
 
-    /**
-     * Sends an OTP to the specified phone number.
-     * POST /api/auth/otp/send
-     *
-     * @param request the OTP send request containing phone number
-     * @return success message
-     */
     @PostMapping("/send")
+    @Operation(summary = "Send OTP", description = "Sends a one-time password to the specified phone number")
     public ResponseEntity<ApiResponse<Void>> sendOtp(@Valid @RequestBody OtpSendRequest request) {
         String phoneNumber = request.getPhoneNumber();
         log.info("Sending OTP to phone number: {}", phoneNumber);
@@ -62,15 +51,8 @@ public class OtpController {
         return ResponseEntity.ok(ApiResponse.<Void>success("OTP sent successfully to " + phoneNumber, null));
     }
 
-    /**
-     * Verifies OTP and returns access and refresh tokens.
-     * On success, registers the device and generates tokens.
-     * POST /api/auth/otp/verify
-     *
-     * @param request the OTP verify request containing phone number, OTP, device ID, and device info
-     * @return tokens response with access token, refresh token, and expiry
-     */
     @PostMapping("/verify")
+    @Operation(summary = "Verify OTP", description = "Verifies OTP and returns access and refresh tokens")
     public ResponseEntity<ApiResponse<TokenResponse>> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
         String phoneNumber = request.getPhoneNumber();
         String otp = request.getOtp();

@@ -16,36 +16,23 @@ import com.rideshare.rideservice.dto.RideRequest;
 import com.rideshare.rideservice.dto.RideResponse;
 import com.rideshare.rideservice.service.RideService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * REST controller for ride management operations.
- * Provides endpoints for creating rides, managing ride lifecycle,
- * and retrieving ride information.
- *
- * @author Soumo Sarkar
- * @version 1.0.0
- * @since 1.0.0
- */
 @RestController
 @RequestMapping("/rides")
 @Slf4j
 @RequiredArgsConstructor
+@Tag(name = "Ride Management", description = "Ride requests, lifecycle, and history")
 public class RideController {
 
     private final RideService rideService;
 
-    /**
-     * Creates a new ride request from a rider.
-     * Publishes a RideRequestedEvent to Kafka for driver matching.
-     *
-     * @param rideRequest the ride request containing pickup and drop-off details
-     * @return ResponseEntity with the created ride response and HTTP 201 status
-     * @throws RuntimeException if ride creation fails
-     */
     @PostMapping("/request")
+    @Operation(summary = "Request Ride", description = "Creates a new ride request and publishes it for driver matching")
     public ResponseEntity<RideResponse> requestRide(
             @Valid @RequestBody RideRequest rideRequest
     ) {
@@ -54,74 +41,40 @@ public class RideController {
                 .body(rideService.requestRide(rideRequest));
     }
 
-    /**
-     * Starts a ride that has been accepted by a driver.
-     * Transitions ride status from ACCEPTED to RIDE_STARTED.
-     *
-     * @param rideId the unique identifier of the ride to start
-     * @return ResponseEntity with the updated ride response
-     * @throws RuntimeException if ride not found or invalid status transition
-     */
     @PutMapping("/{rideId}/start")
+    @Operation(summary = "Start Ride", description = "Starts a ride (ACCEPTED -> RIDE_STARTED)")
     public ResponseEntity<RideResponse> startRide(
             @PathVariable String rideId
     ) {
         return ResponseEntity.ok(rideService.startRide(rideId));
     }
 
-    /**
-     * Completes a ride that is currently in progress.
-     * Transitions ride status from RIDE_STARTED to COMPLETED.
-     * Sets actual fare equal to estimated fare.
-     *
-     * @param rideId the unique identifier of the ride to complete
-     * @return ResponseEntity with the updated ride response
-     * @throws RuntimeException if ride not found or invalid status transition
-     */
     @PutMapping("/{rideId}/complete")
+    @Operation(summary = "Complete Ride", description = "Completes a ride (RIDE_STARTED -> COMPLETED)")
     public ResponseEntity<RideResponse> completeRide(
             @PathVariable String rideId
     ) {
         return ResponseEntity.ok(rideService.completeRide(rideId));
     }
 
-    /**
-     * Cancels a ride at any stage before completion.
-     * Transitions ride status to CANCELLED.
-     *
-     * @param rideId the unique identifier of the ride to cancel
-     * @return ResponseEntity with the updated ride response
-     * @throws RuntimeException if ride not found
-     */
     @PutMapping("/{rideId}/cancel")
+    @Operation(summary = "Cancel Ride", description = "Cancels a ride at any stage before completion")
     public ResponseEntity<RideResponse> cancelRide(
             @PathVariable String rideId
     ) {
         return ResponseEntity.ok(rideService.cancelRide(rideId));
     }
 
-    /**
-     * Retrieves a ride by its unique identifier.
-     *
-     * @param rideId the unique identifier of the ride
-     * @return ResponseEntity with the ride response
-     * @throws RuntimeException if ride not found
-     */
     @GetMapping("/{rideId}")
+    @Operation(summary = "Get Ride", description = "Retrieves a ride by its ID")
     public ResponseEntity<RideResponse> getRideById(
             @PathVariable String rideId
     ) {
         return ResponseEntity.ok(rideService.getRideById(rideId));
     }
 
-    /**
-     * Retrieves all rides for a specific rider, ordered by creation date descending.
-     *
-     * @param riderId the unique identifier of the rider
-     * @return ResponseEntity with list of ride responses
-     * @throws RuntimeException if rider not found
-     */
     @GetMapping("/rider/{riderId}")
+    @Operation(summary = "Get Rider's Rides", description = "Retrieves all rides for a specific rider")
     public ResponseEntity<List<RideResponse>> getRidesByRider(
             @PathVariable String riderId
     ) {
