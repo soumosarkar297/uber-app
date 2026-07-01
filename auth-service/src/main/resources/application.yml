@@ -1,0 +1,54 @@
+server:
+  port: ${SERVER_PORT:9000}
+
+spring:
+  application:
+    name: auth-service
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWKS_URI:http://localhost:9000/api/auth/token/jwks}
+
+otp:
+  length: 6
+  ttl-minutes: 5
+  max-attempts: 3
+  rate-limit-window-minutes: 15
+  rate-limit-max-requests: 5
+
+jwt:
+  access-token-expiry-minutes: 60
+  refresh-token-expiry-days: 30
+  issuer: ${JWT_ISSUER:http://localhost:9000}
+  key-size: 2048
+
+device:
+  max-devices-per-user: 5
+  token-binding-enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.rideshare.authservice: INFO
+    org.springframework.security: WARN
