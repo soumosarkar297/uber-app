@@ -28,7 +28,6 @@ jobs:
         with:
           java-version: '25'
           distribution: 'temurin'
-          maven-version: '3.9.16'
           cache: maven
 
       - name: Build
