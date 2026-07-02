@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Configuration;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 
 /**
  * Configures OpenAPI/Swagger documentation for the Payment Service.
@@ -17,9 +19,7 @@ import io.swagger.v3.oas.models.info.Info;
 public class OpenApiConfig {
 
     /**
-     * Creates the OpenAPI specification with service metadata.
-     *
-     * @return configured OpenAPI instance
+     * Creates the OpenAPI specification with service metadata and JWT security.
      */
     @Bean
     public OpenAPI paymentServiceOpenAPI() {
@@ -27,6 +27,12 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Payment Service API")
                         .description("Wallet Management, Payment Processing, and Transaction History")
-                        .version("1.0.0"));
+                        .version("1.0.0"))
+                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+                .schemaRequirement("Bearer Authentication",
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT"));
     }
 }

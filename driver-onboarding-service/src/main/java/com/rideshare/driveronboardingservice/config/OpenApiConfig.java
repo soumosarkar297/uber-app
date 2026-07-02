@@ -1,4 +1,4 @@
-package com.rideshare.locationservice.config;
+package com.rideshare.driveronboardingservice.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -8,8 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * OpenAPI configuration for the Location Service.
- * Defines API documentation for driver location tracking endpoints.
+ * OpenAPI configuration for the Driver Onboarding Service.
+ * Defines API documentation with JWT Bearer authentication support.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -18,15 +18,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-    /**
-     * Creates the OpenAPI configuration for the Location Service documentation.
-     */
     @Bean
-    public OpenAPI locationServiceOpenAPI() {
+    public OpenAPI driverOnboardingServiceOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Location Service API")
-                        .description("Driver Location Tracking, Nearby Driver Search, Heat Maps, and Route Planning")
+                        .title("Driver Onboarding Service API")
+                        .description("Driver Verification, Document Upload, and Onboarding Workflow")
                         .version("1.0.0"))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
                 .schemaRequirement("Bearer Authentication",

@@ -2,6 +2,8 @@ package com.rideshare.pricingservice.dto;
 
 import java.math.BigDecimal;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,7 +20,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ApplyPromoRequest {
 
+    @Schema(description = "Promo code to apply to the order", example = "WELCOME50")
     private String promoCode;
 
+    @Schema(description = "Total order value before discount", example = "500.00")
     private BigDecimal orderValue;
 }

@@ -1,5 +1,6 @@
 package com.rideshare.locationservice.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,13 +15,15 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Schema(description = "Request payload for updating a driver's availability status")
 public class DriverAvailabilityRequest {
 
+    @Schema(description = "Unique identifier of the driver", example = "DRV-12345")
     private String driverId;
 
-    /** Whether the driver is available to accept rides */
+    @Schema(description = "Whether the driver is available to accept rides", example = "true")
     private boolean available;
 
-    /** Driver's service zone (e.g., "downtown", "airport", "suburb") */
+    @Schema(description = "Driver's service zone (e.g., downtown, airport, suburb)", example = "downtown")
     private String zone;
 }

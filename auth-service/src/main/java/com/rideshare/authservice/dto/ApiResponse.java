@@ -1,5 +1,6 @@
 package com.rideshare.authservice.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,10 +19,33 @@ import java.time.Instant;
 @AllArgsConstructor
 public class ApiResponse<T> {
 
+    @Schema(
+        description = "Indicates whether the request was successful",
+        example = "true"
+    )
     private boolean success;
+
+    @Schema(
+        description = "Human-readable message describing the result",
+        example = "Success"
+    )
     private String message;
+
+    @Schema(
+        description = "Response payload, may be null on error"
+    )
     private T data;
+
+    @Schema(
+        description = "Machine-readable error code, null on success",
+        example = "OTP_EXPIRED"
+    )
     private String errorCode;
+
+    @Schema(
+        description = "ISO-8601 timestamp of when the response was generated",
+        example = "2026-07-02T12:00:00Z"
+    )
     private Instant timestamp;
 
     public ApiResponse(boolean success, String message, T data, String errorCode) {

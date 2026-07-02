@@ -15,9 +15,16 @@ jobs:
           - auth-service
           - user-service
           - driver-service
+          - driver-onboarding-service
           - location-service
           - ride-service
           - matching-service
+          - pricing-service
+          - payment-service
+          - notification-service
+          - rating-service
+          - trip-service
+          - gateway-service
 
     name: Build ${{ matrix.service }}
 

@@ -1,5 +1,6 @@
 package com.rideshare.locationservice.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,20 +15,21 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Schema(description = "Response containing estimated time of arrival calculations")
 public class EtaResponse {
 
-    /** Estimated time to pickup in minutes */
+    @Schema(description = "Estimated time to pickup in minutes", example = "8.5")
     private double pickupEtaMinutes;
 
-    /** Estimated trip duration in minutes */
+    @Schema(description = "Estimated trip duration in minutes", example = "25.0")
     private double tripDurationMinutes;
 
-    /** Total estimated distance in km */
+    @Schema(description = "Total estimated distance in kilometers", example = "15.3")
     private double totalDistanceKm;
 
-    /** Current driver latitude */
+    @Schema(description = "Current latitude coordinate of the driver", example = "28.6139")
     private double driverLatitude;
 
-    /** Current driver longitude */
+    @Schema(description = "Current longitude coordinate of the driver", example = "77.2090")
     private double driverLongitude;
 }

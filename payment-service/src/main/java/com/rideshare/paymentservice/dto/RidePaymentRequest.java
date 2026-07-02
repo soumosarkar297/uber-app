@@ -1,5 +1,6 @@
 package com.rideshare.paymentservice.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotBlank;
@@ -21,21 +22,25 @@ import lombok.NoArgsConstructor;
 public class RidePaymentRequest {
 
     @NotBlank(message = "Ride ID is required")
+    @Schema(description = "Unique identifier of the ride", example = "ride-456", requiredMode = Schema.RequiredMode.REQUIRED)
     private String rideId;
 
     @NotBlank(message = "Rider ID is required")
+    @Schema(description = "Unique identifier of the rider paying for the ride", example = "user-123", requiredMode = Schema.RequiredMode.REQUIRED)
     private String riderId;
 
     @NotBlank(message = "Driver ID is required")
+    @Schema(description = "Unique identifier of the driver who completed the ride", example = "user-789", requiredMode = Schema.RequiredMode.REQUIRED)
     private String driverId;
 
     @NotNull(message = "Amount is required")
+    @Schema(description = "Total fare amount for the ride in INR", example = "350.00", requiredMode = Schema.RequiredMode.REQUIRED)
     private BigDecimal amount;
 
-    /** Payment method: WALLET, CREDIT_CARD, DEBIT_CARD, UPI, CASH */
     @NotBlank(message = "Payment method is required")
+    @Schema(description = "Payment method: WALLET, CREDIT_CARD, DEBIT_CARD, UPI, CASH", example = "WALLET", requiredMode = Schema.RequiredMode.REQUIRED)
     private String paymentMethod;
 
-    /** Gateway token for card/UPI payments */
+    @Schema(description = "Payment gateway token for card or UPI payments (required for non-wallet methods)", example = "tok_1N2x3y4z5a6b7c8d")
     private String gatewayToken;
 }
