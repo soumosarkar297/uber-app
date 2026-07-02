@@ -12,6 +12,7 @@ import com.rideshare.rideservice.dto.RideResponse;
 import com.rideshare.rideservice.event.RideAcceptedEvent;
 import com.rideshare.rideservice.event.RideCancelledEvent;
 import com.rideshare.rideservice.event.RideCompletedEvent;
+import com.rideshare.rideservice.event.RideDriverArrivingEvent;
 import com.rideshare.rideservice.event.RideRequestedEvent;
 import com.rideshare.rideservice.event.RideStartedEvent;
 import com.rideshare.rideservice.model.Ride;
@@ -41,6 +42,7 @@ public class RideService {
     private static final String RIDE_CANCELLED_TOPIC = "ride.cancelled";
     private static final String RIDE_STARTED_TOPIC = "ride.started";
     private static final String RIDE_COMPLETED_TOPIC = "ride.completed";
+    private static final String RIDE_DRIVER_ARRIVING_TOPIC = "ride.driver_arriving";
 
     /**
      * Creates a new ride request from a rider.
@@ -58,6 +60,7 @@ public class RideService {
         ride.setDropLongitude(request.getDropLongitude());
         ride.setDropAddress(request.getDropAddress());
         ride.setVehicleType(request.getVehicleType());
+        ride.setPaymentMethod(request.getPaymentMethod());
         ride.setStatus(RideStatus.REQUESTED);
 
         Ride savedRide = rideRepository.save(ride);
@@ -118,9 +121,15 @@ public class RideService {
 
         ride.getStatus().validateTransition(RideStatus.DRIVER_ARRIVING);
         ride.setStatus(RideStatus.DRIVER_ARRIVING);
+        ride.setDriverArrivedAt(LocalDateTime.now());
         rideRepository.save(ride);
 
         log.info("Ride {} - driver arriving at pickup", rideId);
+
+        RideDriverArrivingEvent event = new RideDriverArrivingEvent(
+                rideId, ride.getRiderId(), ride.getDriverId());
+        kafkaTemplate.send(RIDE_DRIVER_ARRIVING_TOPIC, rideId, event);
+
         return mapToResponse(ride);
     }
 
@@ -175,7 +184,8 @@ public class RideService {
                 rideId, ride.getRiderId(), ride.getDriverId(),
                 ride.getActualFare(),
                 ride.getDistanceKm() != null ? ride.getDistanceKm() : 0,
-                ride.getDurationMinutes() != null ? ride.getDurationMinutes() : 0);
+                ride.getDurationMinutes() != null ? ride.getDurationMinutes() : 0,
+                ride.getPaymentMethod() != null ? ride.getPaymentMethod() : "WALLET");
         kafkaTemplate.send(RIDE_COMPLETED_TOPIC, rideId, event);
 
         return mapToResponse(ride);
@@ -282,6 +292,7 @@ public class RideService {
         response.setCancelledAt(ride.getCancelledAt());
         response.setAcceptedAt(ride.getAcceptedAt());
         response.setDriverArrivedAt(ride.getDriverArrivedAt());
+        response.setPaymentMethod(ride.getPaymentMethod());
         return response;
     }
 }

@@ -1,4 +1,4 @@
-package com.rideshare.locationservice.config;
+package com.rideshare.notificationservice.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -7,8 +7,8 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * Configures the WebSocket message broker for real-time driver location updates.
- * Supports STOMP protocol over SockJS with heartbeat for connection health monitoring.
+ * WebSocket configuration for real-time ride status updates to riders and drivers.
+ * Clients connect to /ws/notifications and subscribe to /user/{userId}/queue/ride-updates.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -16,21 +16,19 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
-
-    private static final long HEARTBEAT_MS = 10_000;
+public class NotificationWebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic")
-                .setHeartbeatValue(new long[]{HEARTBEAT_MS, HEARTBEAT_MS});
+        config.enableSimpleBroker("/topic", "/queue")
+                .setHeartbeatValue(new long[]{10_000, 10_000});
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws/location")
+        registry.addEndpoint("/ws/notifications")
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
     }

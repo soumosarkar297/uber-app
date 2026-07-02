@@ -14,6 +14,7 @@ import com.rideshare.paymentservice.entity.Transaction.PaymentMethod;
 import com.rideshare.paymentservice.entity.Transaction.TransactionStatus;
 import com.rideshare.paymentservice.entity.Transaction.TransactionType;
 import com.rideshare.paymentservice.entity.Wallet;
+import com.rideshare.paymentservice.event.PaymentCompletedEvent;
 import com.rideshare.paymentservice.repository.TransactionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -74,8 +75,16 @@ public class RidePaymentService {
             transaction.setStatus(TransactionStatus.COMPLETED);
             transactionRepository.save(transaction);
 
-            // Notify driver about payment
-            kafkaTemplate.send(PAYMENT_COMPLETED_TOPIC, request.getRideId(), transaction);
+            PaymentCompletedEvent completedEvent = new PaymentCompletedEvent(
+                    request.getRideId(),
+                    request.getRiderId(),
+                    request.getDriverId(),
+                    request.getAmount(),
+                    method.name(),
+                    transaction.getTransactionRef(),
+                    "COMPLETED");
+
+            kafkaTemplate.send(PAYMENT_COMPLETED_TOPIC, request.getRideId(), completedEvent);
 
             return new RidePaymentResponse(
                     transaction.getId(),

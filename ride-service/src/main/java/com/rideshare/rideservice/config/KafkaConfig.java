@@ -51,6 +51,15 @@ public class KafkaConfig {
                 .build();
     }
 
+    /** Creates the ride.declined topic. */
+    @Bean
+    public NewTopic rideDeclinedTopic() {
+        return TopicBuilder.name("ride.declined")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
     /** Creates the ride.started topic. */
     @Bean
     public NewTopic rideStartedTopic() {
@@ -64,6 +73,33 @@ public class KafkaConfig {
     @Bean
     public NewTopic rideCompletedTopic() {
         return TopicBuilder.name("ride.completed")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the ride.driver_arriving topic. */
+    @Bean
+    public NewTopic rideDriverArrivingTopic() {
+        return TopicBuilder.name("ride.driver_arriving")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the payment.completed topic. */
+    @Bean
+    public NewTopic paymentCompletedTopic() {
+        return TopicBuilder.name("payment.completed")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    /** Creates the analytics.events topic for real-time analytics pipeline. */
+    @Bean
+    public NewTopic analyticsEventsTopic() {
+        return TopicBuilder.name("analytics.events")
                 .partitions(3)
                 .replicas(1)
                 .build();

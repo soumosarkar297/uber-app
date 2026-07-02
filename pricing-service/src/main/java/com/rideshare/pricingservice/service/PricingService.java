@@ -12,6 +12,7 @@ import com.rideshare.pricingservice.dto.BaseFareResponse;
 import com.rideshare.pricingservice.dto.FareEstimationRequest;
 import com.rideshare.pricingservice.dto.FareEstimationResponse;
 import com.rideshare.pricingservice.dto.SurgePricingRequest;
+import com.rideshare.pricingservice.util.GeoUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +34,6 @@ public class PricingService {
     private final PromoCodeService promoCodeService;
 
     private static final double AVG_SPEED_KMH = 30.0;
-    private static final int EARTH_RADIUS_KM = 6371;
 
     /**
      * Calculates a complete fare estimation for a ride request.
@@ -51,7 +51,7 @@ public class PricingService {
         BaseFareResponse baseFare = baseFareService.getBaseFare(baseFareRequest);
 
         // Calculate distance and duration
-        double distanceKm = haversine(
+        double distanceKm = GeoUtils.haversine(
                 request.getPickupLatitude(), request.getPickupLongitude(),
                 request.getDropLatitude(), request.getDropLongitude());
         double durationMinutes = (distanceKm / AVG_SPEED_KMH) * 60;
@@ -113,15 +113,5 @@ public class PricingService {
                 Math.round(durationMinutes * 10.0) / 10.0,
                 request.getPromoCode(),
                 promoDescription);
-    }
-
-    private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return EARTH_RADIUS_KM * c;
     }
 }

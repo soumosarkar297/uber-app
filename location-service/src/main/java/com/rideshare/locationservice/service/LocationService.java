@@ -1,8 +1,9 @@
 package com.rideshare.locationservice.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
@@ -12,11 +13,15 @@ import org.springframework.data.geo.Metrics;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.rideshare.locationservice.dto.DriverLocationRequest;
 import com.rideshare.locationservice.dto.NearByDriverResponse;
+import com.rideshare.locationservice.event.LocationEventPublisher;
+import com.rideshare.locationservice.event.LocationUpdatedEvent;
 import com.rideshare.locationservice.handler.LocationWebSocketHandler;
+import com.rideshare.locationservice.util.GeoUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,9 +42,13 @@ public class LocationService {
     private final RedisTemplate<String, String> redisTemplate;
     private final LocationWebSocketHandler webSocketHandler;
     private final LocationHistoryService locationHistoryService;
+    private final LocationEventPublisher locationEventPublisher;
+    private final DriverAvailabilityService driverAvailabilityService;
 
     private static final String DRIVERS_GEO_KEY = "drivers:locations";
     private static final String DRIVERS_HASH_KEY = "drivers:metadata";
+    private static final int DEFAULT_NEARBY_LIMIT = 10;
+    private static final int MAX_NEARBY_LIMIT = 50;
 
     /**
      * Updates the location of a driver in Redis. Stores GEO position and
@@ -52,10 +61,11 @@ public class LocationService {
         Point driverPoint = new Point(request.getLongitude(), request.getLatitude());
         redisTemplate.opsForGeo().add(DRIVERS_GEO_KEY, driverPoint, request.getDriverId());
 
-        // Store metadata (heading, speed) in hash
-        String metadata = String.format("%s,%s",
+        // Store metadata (heading, speed, timestamp) in hash
+        String metadata = String.format("%s,%s,%d",
                 request.getHeading() != null ? request.getHeading().toString() : "",
-                request.getSpeed() != null ? request.getSpeed().toString() : "");
+                request.getSpeed() != null ? request.getSpeed().toString() : "",
+                System.currentTimeMillis());
         redisTemplate.opsForHash().put(DRIVERS_HASH_KEY, request.getDriverId(), metadata);
 
         // Record in history
@@ -68,6 +78,17 @@ public class LocationService {
 
         // Broadcast via WebSocket
         webSocketHandler.broadcastDriverLocation(request);
+
+        // Publish location updated event to Kafka
+        String zone = driverAvailabilityService.getDriverZone(request.getDriverId());
+        locationEventPublisher.publishLocationUpdated(new LocationUpdatedEvent(
+                request.getDriverId(),
+                request.getLatitude(),
+                request.getLongitude(),
+                request.getHeading(),
+                request.getSpeed(),
+                zone,
+                LocalDateTime.now()));
 
         log.info("Location updated for driver: {}", request.getDriverId());
     }
@@ -86,8 +107,15 @@ public class LocationService {
      */
     public List<NearByDriverResponse> findNearByDrivers(
             double latitude, double longitude, double radiusInKm) {
-        log.info("Finding drivers near lat: {} long: {} within {}Km",
-                latitude, longitude, radiusInKm);
+        return findNearByDrivers(latitude, longitude, radiusInKm, DEFAULT_NEARBY_LIMIT);
+    }
+
+    public List<NearByDriverResponse> findNearByDrivers(
+            double latitude, double longitude, double radiusInKm, int limit) {
+        log.info("Finding drivers near lat: {} long: {} within {}Km (limit: {})",
+                latitude, longitude, radiusInKm, limit);
+
+        int effectiveLimit = Math.min(Math.max(limit, 1), MAX_NEARBY_LIMIT);
 
         Circle searchArea = new Circle(
                 new Point(longitude, latitude),
@@ -102,7 +130,7 @@ public class LocationService {
                                 .includeCoordinates()
                                 .includeDistance()
                                 .sortAscending()
-                                .limit(10));
+                                .limit(effectiveLimit));
 
         List<NearByDriverResponse> nearbyDrivers = new ArrayList<>();
 
@@ -119,10 +147,10 @@ public class LocationService {
                 if (metadata != null && !metadata.isEmpty()) {
                     String[] parts = metadata.split(",");
                     if (parts.length > 0 && !parts[0].isEmpty()) {
-                        heading = Double.parseDouble(parts[0]);
+                        heading = Double.valueOf(parts[0]);
                     }
                     if (parts.length > 1 && !parts[1].isEmpty()) {
-                        speed = Double.parseDouble(parts[1]);
+                        speed = Double.valueOf(parts[1]);
                     }
                 }
 
@@ -210,7 +238,7 @@ public class LocationService {
         double centerLon = (minLon + maxLon) / 2;
 
         // Calculate approximate radius to cover the rectangle
-        double radiusKm = haversine(minLat, minLon, maxLat, maxLon) / 2;
+        double radiusKm = GeoUtils.haversine(minLat, minLon, maxLat, maxLon) / 2;
 
         List<NearByDriverResponse> drivers = findNearByDrivers(centerLat, centerLon, radiusKm);
 
@@ -221,13 +249,44 @@ public class LocationService {
                 .toList();
     }
 
-    private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return 6371 * c;
+    /**
+     * Removes drivers whose last location update exceeds the stale threshold.
+     * Runs every 60 seconds to prevent ghost drivers in the GEO index.
+     */
+    @Scheduled(fixedRate = 60_000)
+    public void cleanupStaleDrivers() {
+        long cutoff = System.currentTimeMillis() - 300_000; // 5 minutes
+        Map<Object, Object> allMetadata = redisTemplate.opsForHash().entries(DRIVERS_HASH_KEY);
+        int removed = 0;
+
+        for (Map.Entry<Object, Object> entry : allMetadata.entrySet()) {
+            String driverId = (String) entry.getKey();
+            String meta = (String) entry.getValue();
+
+            if (meta == null || meta.isEmpty()) {
+                removeDriver(driverId);
+                removed++;
+                continue;
+            }
+
+            String[] parts = meta.split(",");
+            if (parts.length >= 3) {
+                try {
+                    long lastUpdate = Long.parseLong(parts[2].trim());
+                    if (lastUpdate < cutoff) {
+                        removeDriver(driverId);
+                        removed++;
+                    }
+                } catch (NumberFormatException e) {
+                    removeDriver(driverId);
+                    removed++;
+                }
+            }
+        }
+
+        if (removed > 0) {
+            log.info("Cleaned up {} stale driver locations", removed);
+        }
     }
+
 }

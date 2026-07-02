@@ -1,11 +1,12 @@
-package com.rideshare.rideservice.event;
+package com.rideshare.paymentservice.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Event published when a ride is successfully completed.
+ * Kafka event payload for ride lifecycle events consumed from ride-service.
+ * Used to trigger automatic payment processing on ride completion.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -14,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class RideCompletedEvent {
+public class RideEvent {
 
     private String rideId;
     private String riderId;

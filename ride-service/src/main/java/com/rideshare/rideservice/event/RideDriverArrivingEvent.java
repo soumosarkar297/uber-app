@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Event published when a ride is successfully completed.
+ * Event published when a driver is arriving at the pickup location.
  *
  * @author Soumo Sarkar
  * @version 1.0.0
@@ -14,13 +14,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class RideCompletedEvent {
+public class RideDriverArrivingEvent {
 
     private String rideId;
     private String riderId;
     private String driverId;
-    private double actualFare;
-    private double distanceKm;
-    private double durationMinutes;
-    private String paymentMethod;
 }

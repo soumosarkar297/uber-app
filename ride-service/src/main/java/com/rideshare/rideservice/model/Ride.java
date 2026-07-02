@@ -94,4 +94,6 @@ public class Ride {
     private LocalDateTime acceptedAt;
 
     private LocalDateTime driverArrivedAt;
+
+    private String paymentMethod;
 }

@@ -1,5 +1,6 @@
 package com.rideshare.rideservice.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,4 +20,6 @@ public interface RideRepository extends JpaRepository<Ride, String> {
     List<Ride> findByRiderIdOrderByCreatedAtDesc(String riderId);
 
     List<Ride> findByDriverIdAndStatusIn(String driverId, List<RideStatus> statuses);
+
+    List<Ride> findByStatusAndCreatedAtBefore(RideStatus status, LocalDateTime createdAt);
 }

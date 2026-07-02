@@ -13,6 +13,9 @@ import com.rideshare.notificationservice.entity.Notification;
 import com.rideshare.notificationservice.entity.Notification.NotificationChannel;
 import com.rideshare.notificationservice.entity.Notification.NotificationStatus;
 import com.rideshare.notificationservice.entity.Notification.NotificationType;
+import com.rideshare.notificationservice.event.RideDeclinedEvent;
+import com.rideshare.notificationservice.event.RideEvent;
+import com.rideshare.notificationservice.handler.RideStatusWebSocketHandler;
 import com.rideshare.notificationservice.repository.NotificationRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,7 @@ public class NotificationService {
     private final FcmService fcmService;
     private final EmailService emailService;
     private final DeviceTokenService deviceTokenService;
+    private final RideStatusWebSocketHandler rideStatusWebSocketHandler;
 
     /**
      * Sends a notification through the specified channel.
@@ -105,16 +109,54 @@ public class NotificationService {
 
     /**
      * Listens for ride matched events and notifies the rider.
+     * Also broadcasts status update via WebSocket.
      */
     @KafkaListener(topics = "ride.matched", groupId = "notification-service-group")
     public void onRideMatched(com.rideshare.notificationservice.event.RideEvent event) {
-        // Notify rider that driver accepted
         sendNotification(event.getRiderId(),
                 "Driver Found!",
                 "Your driver is on the way to pick you up",
                 NotificationType.RIDE_ACCEPTED,
                 NotificationChannel.PUSH,
                 event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "MATCHED",
+                event.getRiderId(), event.getDriverId(),
+                "Your driver has been assigned and is on the way!");
+    }
+
+    /**
+     * Listens for ride accepted events and notifies the rider.
+     */
+    @KafkaListener(topics = "ride.accepted", groupId = "notification-service-group")
+    public void onRideAccepted(RideEvent event) {
+        sendNotification(event.getRiderId(),
+                "Driver Accepted",
+                "Your driver has accepted the ride",
+                NotificationType.RIDE_ACCEPTED,
+                NotificationChannel.PUSH,
+                event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "ACCEPTED",
+                event.getRiderId(), event.getDriverId(),
+                "Your driver has accepted the ride and is heading to pickup!");
+    }
+
+    @KafkaListener(topics = "ride.driver_arriving", groupId = "notification-service-group")
+    public void onDriverArriving(RideEvent event) {
+        sendNotification(event.getRiderId(),
+                "Driver Arriving",
+                "Your driver is arriving at the pickup location",
+                NotificationType.DRIVER_ARRIVING,
+                NotificationChannel.PUSH,
+                event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "DRIVER_ARRIVING",
+                event.getRiderId(), event.getDriverId(),
+                "Your driver is arriving at the pickup location!");
     }
 
     /**
@@ -128,6 +170,11 @@ public class NotificationService {
                 NotificationType.RIDE_STARTED,
                 NotificationChannel.PUSH,
                 event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "STARTED",
+                event.getRiderId(), event.getDriverId(),
+                "Your ride has started!");
     }
 
     /**
@@ -141,6 +188,11 @@ public class NotificationService {
                 NotificationType.RIDE_COMPLETED,
                 NotificationChannel.PUSH,
                 event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "COMPLETED",
+                event.getRiderId(), event.getDriverId(),
+                "Your ride has been completed. Thank you!");
     }
 
     /**
@@ -152,6 +204,52 @@ public class NotificationService {
                 "Ride Cancelled",
                 "Your ride has been cancelled",
                 NotificationType.RIDE_CANCELLED,
+                NotificationChannel.PUSH,
+                event.getRideId(), null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                event.getRideId(), "CANCELLED",
+                event.getRiderId(), event.getDriverId(),
+                "Your ride has been cancelled.");
+    }
+
+    /**
+     * Listens for ride declined events (no driver found) and notifies the rider.
+     */
+    @KafkaListener(topics = "ride.declined", groupId = "notification-service-group")
+    public void onRideDeclined(RideDeclinedEvent event) {
+        String rideId = event.getRideId();
+        String reason = event.getReason() != null ? event.getReason() : "NO_DRIVERS_AVAILABLE";
+
+        String message = switch (reason) {
+            case "NO_DRIVERS_AVAILABLE" -> "No drivers are available in your area right now. Please try again later.";
+            case "NO_SUITABLE_DRIVER" -> "Unable to find a suitable driver. Please try again.";
+            case "MATCHING_TIMEOUT" -> "Unable to find a driver in time. Please try again.";
+            default -> "Unable to process your ride request.";
+        };
+
+        sendNotification(rideId,
+                "Ride Request Failed",
+                message,
+                NotificationType.RIDE_CANCELLED,
+                NotificationChannel.PUSH,
+                rideId, null);
+
+        rideStatusWebSocketHandler.broadcastRideStatus(
+                rideId, "DECLINED",
+                null, null,
+                message);
+    }
+
+    /**
+     * Listens for payment completed events and notifies the rider.
+     */
+    @KafkaListener(topics = "payment.completed", groupId = "notification-service-group")
+    public void onPaymentCompleted(com.rideshare.notificationservice.event.RideEvent event) {
+        sendNotification(event.getRiderId(),
+                "Payment Processed",
+                "Your payment has been processed successfully",
+                NotificationType.RIDE_COMPLETED,
                 NotificationChannel.PUSH,
                 event.getRideId(), null);
     }

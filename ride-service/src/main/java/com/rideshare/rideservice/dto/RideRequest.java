@@ -44,4 +44,7 @@ public class RideRequest {
 
     /** Promo code to apply */
     private String promoCode;
+
+    /** Preferred payment method (WALLET, STRIPE, RAZORPAY, CASH) */
+    private String paymentMethod;
 }

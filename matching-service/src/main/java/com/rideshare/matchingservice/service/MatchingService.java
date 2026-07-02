@@ -3,15 +3,20 @@ package com.rideshare.matchingservice.service;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import com.rideshare.matchingservice.client.DriverServiceClient;
 import com.rideshare.matchingservice.client.LocationServiceClient;
+import com.rideshare.matchingservice.dto.DriverMetricsResponse;
 import com.rideshare.matchingservice.dto.NearByDriverResponse;
 import com.rideshare.matchingservice.dto.SurgeArea;
+import com.rideshare.matchingservice.event.RideDeclinedEvent;
 import com.rideshare.matchingservice.event.RideMatchedEvent;
 import com.rideshare.matchingservice.event.RideRequestedEvent;
+import com.rideshare.matchingservice.util.GeoUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +34,13 @@ import lombok.extern.slf4j.Slf4j;
 public class MatchingService {
 
     private final LocationServiceClient locationServiceClient;
+    private final DriverServiceClient driverServiceClient;
     private final KafkaTemplate<String, RideMatchedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, RideDeclinedEvent> declinedKafkaTemplate;
     private final SurgeDetectionService surgeDetectionService;
 
     private static final String RIDE_MATCHED_TOPIC = "ride.matched";
+    private static final String RIDE_DECLINED_TOPIC = "ride.declined";
     private static final double DEFAULT_SEARCH_RADIUS_KM = 5.0;
     private static final double MAX_SEARCH_RADIUS_KM = 15.0;
     private static final double SEARCH_RADIUS_INCREMENT_KM = 2.5;
@@ -43,9 +51,14 @@ public class MatchingService {
     private static final double ACCEPTANCE_RATE_WEIGHT = 0.20;
     private static final double TRIP_COUNT_WEIGHT = 0.15;
 
+    // Default fallback metrics when driver service is unavailable
+    private static final double DEFAULT_RATING = 4.5;
+    private static final int DEFAULT_TRIPS = 10;
+    private static final double DEFAULT_ACCEPTANCE_RATE = 0.85;
+
     /**
      * Main matching algorithm. Expands search radius if no drivers found.
-     * Uses multi-factor scoring to select the best driver.
+     * Uses multi-factor scoring with real driver metrics from driver-service.
      */
     public void matchDriverForRide(RideRequestedEvent event) {
         double searchRadius = DEFAULT_SEARCH_RADIUS_KM;
@@ -67,6 +80,13 @@ public class MatchingService {
         if (nearByDrivers.isEmpty()) {
             log.warn("No drivers found for ride {} after expanding to {}km",
                     event.getRideId(), searchRadius);
+
+            declinedKafkaTemplate.send(RIDE_DECLINED_TOPIC, event.getRideId(),
+                    new RideDeclinedEvent(
+                            event.getRideId(),
+                            "NO_DRIVERS_AVAILABLE",
+                            String.valueOf(searchRadius)
+                    ));
             return;
         }
 
@@ -74,15 +94,27 @@ public class MatchingService {
         List<SurgeArea> surgeAreas = surgeDetectionService.detectSurgeAreas(
                 event.getPickupLatitude(), event.getPickupLongitude());
 
+        // Fetch real driver metrics for all candidates
+        List<EnrichedDriver> enrichedDrivers = nearByDrivers.stream()
+                .map(driver -> new EnrichedDriver(driver, fetchDriverMetrics(driver.getDriverId())))
+                .toList();
+
         // Score and select best driver
-        Optional<NearByDriverResponse> bestDriver = findBestDriver(nearByDrivers, surgeAreas);
+        Optional<EnrichedDriver> bestDriver = findBestDriver(enrichedDrivers, surgeAreas);
 
         if (bestDriver.isEmpty()) {
             log.warn("Could not find suitable driver for ride: {}", event.getRideId());
+
+            declinedKafkaTemplate.send(RIDE_DECLINED_TOPIC, event.getRideId(),
+                    new RideDeclinedEvent(
+                            event.getRideId(),
+                            "NO_SUITABLE_DRIVER",
+                            null
+                    ));
             return;
         }
 
-        NearByDriverResponse assignedDriver = bestDriver.get();
+        NearByDriverResponse assignedDriver = bestDriver.get().nearby();
 
         RideMatchedEvent matchedEvent = new RideMatchedEvent(
                 event.getRideId(),
@@ -98,35 +130,52 @@ public class MatchingService {
     }
 
     /**
-     * Multi-factor driver scoring algorithm.
+     * Fetches real driver metrics from driver-service via Feign.
+     * Falls back to defaults if the service is unavailable.
+     */
+    private DriverMetricsResponse fetchDriverMetrics(String driverId) {
+        try {
+            return driverServiceClient.getDriverById(UUID.fromString(driverId));
+        } catch (Exception e) {
+            log.warn("Failed to fetch metrics for driver {}: {}", driverId, e.getMessage());
+            return new DriverMetricsResponse(null, DEFAULT_RATING, DEFAULT_TRIPS, true, true);
+        }
+    }
+
+    /**
+     * Multi-factor driver scoring algorithm using real metrics.
      * Score = distanceScore * 0.40 + ratingScore * 0.25 + acceptanceRate * 0.20 + tripCountScore * 0.15
      */
-    private Optional<NearByDriverResponse> findBestDriver(
-            List<NearByDriverResponse> drivers,
+    private Optional<EnrichedDriver> findBestDriver(
+            List<EnrichedDriver> drivers,
             List<SurgeArea> surgeAreas) {
 
         return drivers.stream()
                 .max(Comparator.comparingDouble(driver -> calculateDriverScore(driver, surgeAreas)));
     }
 
-    private double calculateDriverScore(NearByDriverResponse driver, List<SurgeArea> surgeAreas) {
+    private double calculateDriverScore(EnrichedDriver enriched, List<SurgeArea> surgeAreas) {
+        NearByDriverResponse driver = enriched.nearby();
+        DriverMetricsResponse metrics = enriched.metrics();
+
         // Distance score: closer = higher score (normalized 0-1)
         double distanceScore = 1.0 / (driver.getDistanceInKm() + 0.1);
 
-        // Rating score: normalized 0-1 (assuming 4.0-5.0 range)
-        double simulatedRating = 4.0 + Math.random();
-        double ratingScore = (simulatedRating - 3.0) / 2.0;
+        // Rating score: normalized 0-1 (scale: 1.0-5.0 -> 0.0-1.0)
+        double rating = metrics.getRating() != null ? metrics.getRating() : DEFAULT_RATING;
+        double ratingScore = (rating - 1.0) / 4.0;
 
-        // Acceptance rate: simulated 0.7-1.0
-        double acceptanceRate = 0.7 + (Math.random() * 0.3);
+        // Acceptance rate: use default if not available from driver service
+        double acceptanceRate = DEFAULT_ACCEPTANCE_RATE;
 
-        // Trip count: simulated normalized score
-        double tripCountScore = Math.random();
+        // Trip count score: normalized 0-1 (cap at 1000 trips)
+        int totalTrips = metrics.getTotalTrips() != null ? metrics.getTotalTrips() : DEFAULT_TRIPS;
+        double tripCountScore = Math.min(totalTrips / 1000.0, 1.0);
 
         // Surge area penalty: reduce score if driver is in a surge area
         double surgePenalty = 1.0;
         for (SurgeArea area : surgeAreas) {
-            double distToSurgeCenter = haversine(
+            double distToSurgeCenter = GeoUtils.haversine(
                     driver.getLatitude(), driver.getLongitude(),
                     area.getCenterLatitude(), area.getCenterLongitude());
             if (distToSurgeCenter <= area.getRadiusKm()) {
@@ -143,13 +192,8 @@ public class MatchingService {
                 * surgePenalty;
     }
 
-    private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return 6371 * c;
-    }
+    /**
+     * Internal record pairing a nearby driver with their fetched metrics.
+     */
+    private record EnrichedDriver(NearByDriverResponse nearby, DriverMetricsResponse metrics) {}
 }

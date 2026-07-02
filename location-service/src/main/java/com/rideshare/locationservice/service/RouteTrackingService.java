@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.rideshare.locationservice.dto.RouteTrackingRequest;
 import com.rideshare.locationservice.dto.RouteTrackingResponse;
+import com.rideshare.locationservice.util.GeoUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,6 @@ public class RouteTrackingService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String ROUTE_TRACKING_PREFIX = "route:tracking:";
-    private static final int EARTH_RADIUS_KM = 6371;
 
     /**
      * Records route points for an active ride.
@@ -80,7 +80,7 @@ public class RouteTrackingService {
                 continue;
             }
 
-            totalDistance += haversine(prevLat, prevLon, lat, lon);
+            totalDistance += GeoUtils.haversine(prevLat, prevLon, lat, lon);
             prevLat = lat;
             prevLon = lon;
             lastTimestamp = timestamp;
@@ -99,15 +99,5 @@ public class RouteTrackingService {
 
         return new RouteTrackingResponse(
                 rideId, driverId, totalDistance, avgSpeed, routePoints.size());
-    }
-
-    private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return EARTH_RADIUS_KM * c;
     }
 }

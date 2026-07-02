@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.rideshare.tripservice.dto.RideReceiptResponse;
 import com.rideshare.tripservice.dto.TripAnalyticsResponse;
 import com.rideshare.tripservice.dto.TripRecordResponse;
+import com.rideshare.tripservice.service.AnalyticsAggregationService;
 import com.rideshare.tripservice.service.TripService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TripController {
 
     private final TripService tripService;
+    private final AnalyticsAggregationService analyticsService;
 
     @GetMapping("/rider/{riderId}")
     @Operation(summary = "Get Rider Trip History", description = "Gets paginated trip history for a rider")
@@ -81,4 +83,26 @@ public class TripController {
             @RequestParam(defaultValue = "csv") String format) {
         return ResponseEntity.ok(tripService.exportTripData(userId, format));
     }
+
+    @GetMapping("/analytics/dashboard")
+    @Operation(summary = "Get Analytics Dashboard", description = "Gets real-time analytics dashboard with ride counts, revenue, and hourly breakdown")
+    public ResponseEntity<AnalyticsAggregationService.DashboardMetrics> getDashboard() {
+        return ResponseEntity.ok(analyticsService.getDashboardMetrics());
+    }
+
+    @GetMapping("/analytics/driver/{driverId}/performance")
+    @Operation(summary = "Get Driver Performance Metrics", description = "Gets driver performance metrics including total trips and earnings")
+    public ResponseEntity<DriverPerformanceResponse> getDriverPerformance(
+            @PathVariable String driverId) {
+        return ResponseEntity.ok(new DriverPerformanceResponse(
+                driverId,
+                analyticsService.getDriverTotalTrips(driverId),
+                analyticsService.getDriverTotalEarnings(driverId)));
+    }
+
+    public record DriverPerformanceResponse(
+            String driverId,
+            long totalTrips,
+            java.math.BigDecimal totalEarnings
+    ) {}
 }

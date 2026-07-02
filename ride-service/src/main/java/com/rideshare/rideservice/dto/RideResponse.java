@@ -46,4 +46,5 @@ public class RideResponse {
     private LocalDateTime cancelledAt;
     private LocalDateTime acceptedAt;
     private LocalDateTime driverArrivedAt;
+    private String paymentMethod;
 }

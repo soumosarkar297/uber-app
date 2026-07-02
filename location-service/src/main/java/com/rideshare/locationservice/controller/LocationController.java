@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.rideshare.locationservice.dto.DirectionRequest;
+import com.rideshare.locationservice.dto.DirectionResponse;
+import com.rideshare.locationservice.dto.DistanceMatrixRequest;
+import com.rideshare.locationservice.dto.DistanceMatrixResponse;
 import com.rideshare.locationservice.dto.DriverAvailabilityRequest;
 import com.rideshare.locationservice.dto.DriverLocationRequest;
 import com.rideshare.locationservice.dto.EtaRequest;
@@ -22,10 +26,14 @@ import com.rideshare.locationservice.dto.LocationHistoryEntry;
 import com.rideshare.locationservice.dto.NearByDriverResponse;
 import com.rideshare.locationservice.dto.RouteTrackingRequest;
 import com.rideshare.locationservice.dto.RouteTrackingResponse;
+import com.rideshare.locationservice.dto.SurgeAreaResponse;
 import com.rideshare.locationservice.service.DriverAvailabilityService;
+import com.rideshare.locationservice.service.GoogleMapsService;
+import com.rideshare.locationservice.service.HeatMapService;
 import com.rideshare.locationservice.service.LocationHistoryService;
 import com.rideshare.locationservice.service.LocationService;
 import com.rideshare.locationservice.service.RouteTrackingService;
+import com.rideshare.locationservice.util.GeoUtils;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +59,8 @@ public class LocationController {
     private final LocationHistoryService locationHistoryService;
     private final RouteTrackingService routeTrackingService;
     private final DriverAvailabilityService driverAvailabilityService;
+    private final GoogleMapsService googleMapsService;
+    private final HeatMapService heatMapService;
 
     // ── Location Update APIs ──
 
@@ -78,8 +88,9 @@ public class LocationController {
     public ResponseEntity<List<NearByDriverResponse>> getNearByDrivers(
             @RequestParam double latitude,
             @RequestParam double longitude,
-            @RequestParam(defaultValue = "5.0") double radius) {
-        return ResponseEntity.ok(locationService.findNearByDrivers(latitude, longitude, radius));
+            @RequestParam(defaultValue = "5.0") double radius,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(locationService.findNearByDrivers(latitude, longitude, radius, limit));
     }
 
     @GetMapping("/drivers/nearby/available")
@@ -168,23 +179,21 @@ public class LocationController {
             return ResponseEntity.notFound().build();
         }
 
-        double pickupDistance = haversine(
+        double pickupDistance = GeoUtils.haversine(
                 driverLocation.getY(), driverLocation.getX(),
                 request.getPickupLatitude(), request.getPickupLongitude());
-        double tripDistance = haversine(
+        double tripDistance = GeoUtils.haversine(
                 request.getPickupLatitude(), request.getPickupLongitude(),
                 request.getDropLatitude(), request.getDropLongitude());
 
-        // Assume average city speed of 30 km/h
         double avgSpeedKmh = 30.0;
-        double pickupEta = (pickupDistance / avgSpeedKmh) * 60;
-        double tripDuration = (tripDistance / avgSpeedKmh) * 60;
+        double pickupEta = GeoUtils.estimateTimeMinutes(pickupDistance, avgSpeedKmh);
+        double tripDuration = GeoUtils.estimateTimeMinutes(tripDistance, avgSpeedKmh);
 
         EtaResponse response = new EtaResponse();
-        response.setPickupEtaMinutes(Math.round(pickupEta * 10.0) / 10.0);
-        response.setTripDurationMinutes(Math.round(tripDuration * 10.0) / 10.0);
-        response.setTotalDistanceKm(
-                Math.round((pickupDistance + tripDistance) * 100.0) / 100.0);
+        response.setPickupEtaMinutes(GeoUtils.round(pickupEta, 1));
+        response.setTripDurationMinutes(GeoUtils.round(tripDuration, 1));
+        response.setTotalDistanceKm(GeoUtils.round(pickupDistance + tripDistance, 2));
         response.setDriverLatitude(driverLocation.getY());
         response.setDriverLongitude(driverLocation.getX());
 
@@ -253,13 +262,70 @@ public class LocationController {
         return ResponseEntity.ok("Driver removed successfully");
     }
 
-    private double haversine(double lat1, double lon1, double lat2, double lon2) {
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return 6371 * c;
+    // ── Heat Map APIs ──
+
+    @PostMapping("/heatmap/demand")
+    @Operation(summary = "Record Ride Request Demand", description = "Records a ride request for heat map aggregation")
+    public ResponseEntity<String> recordDemand(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(required = false) String zone) {
+        heatMapService.recordRideRequest(latitude, longitude, zone);
+        return ResponseEntity.ok("Demand recorded");
+    }
+
+    @GetMapping("/heatmap/data")
+    @Operation(summary = "Get Heat Map Data", description = "Gets demand/supply data points for heat map visualization")
+    public ResponseEntity<List<HeatMapService.HeatMapPoint>> getHeatMapData(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "5.0") double radius) {
+        return ResponseEntity.ok(heatMapService.getHeatMapData(latitude, longitude, radius));
+    }
+
+    @GetMapping("/heatmap/surge")
+    @Operation(summary = "Identify Surge Areas", description = "Identifies surge areas based on demand-supply ratio")
+    public ResponseEntity<List<SurgeAreaResponse>> identifySurgeAreas(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "5.0") double radius) {
+        return ResponseEntity.ok(heatMapService.identifySurgeAreas(latitude, longitude, radius));
+    }
+
+    @GetMapping("/heatmap/zone/{zone}/demand")
+    @Operation(summary = "Get Zone Demand", description = "Gets demand count for a specific zone")
+    public ResponseEntity<Long> getZoneDemand(@PathVariable String zone) {
+        return ResponseEntity.ok(heatMapService.getZoneDemand(zone));
+    }
+
+    // ── Google Maps Integration APIs ──
+
+    @PostMapping("/directions")
+    @Operation(summary = "Get Directions", description = "Gets directions between two points using Google Maps API")
+    public ResponseEntity<DirectionResponse> getDirections(
+            @RequestBody DirectionRequest request) {
+        return ResponseEntity.ok(googleMapsService.getDirections(request));
+    }
+
+    @PostMapping("/distance-matrix")
+    @Operation(summary = "Get Distance Matrix", description = "Gets distance matrix between multiple origins and destinations")
+    public ResponseEntity<DistanceMatrixResponse> getDistanceMatrix(
+            @RequestBody DistanceMatrixRequest request) {
+        return ResponseEntity.ok(googleMapsService.getDistanceMatrix(request));
+    }
+
+    @PostMapping("/eta/google")
+    @Operation(summary = "Calculate ETA with Google Maps", description = "Calculates ETA using Google Maps Direction API")
+    public ResponseEntity<EtaResponse> calculateEtaWithGoogle(
+            @RequestBody EtaRequest request) {
+        var driverLocation = locationService.getDriverLocation(request.getDriverId());
+        if (driverLocation == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(googleMapsService.calculateEta(
+                request.getDriverId(),
+                driverLocation.getY(), driverLocation.getX(),
+                request.getPickupLatitude(), request.getPickupLongitude(),
+                request.getDropLatitude(), request.getDropLongitude()));
     }
 }
